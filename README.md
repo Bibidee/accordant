@@ -104,10 +104,10 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository is a **locally integrated build**, not a claim of completed deployment. It contains the frozen product specification, security rules, implementation source and exhaustive build prompt. Deployment and live lifecycle evidence remain blocked on the configured signer and production browser environment; no placeholder is presented as evidence.
+This repository contains the locally integrated build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The live contract is `0x36aeEf2E1FB5495937eeB483215BAeb20ce9a1e6`; the deployment receipt, live lifecycle evidence and browser verification are recorded in `docs/DEPLOYMENT.md`.
 
 Read `BUILD_PROMPT.txt` before changing anything.
 
 ## Current repository status
 
-The local build includes the real `genlayer-js` 1.1.8 adapter, injected-wallet writes, canonical reads, criterion-bound evidence forms, append-only history views, transaction-hash recovery, protocol/product-state separation, and the required routes. It does not claim a deployed contract or production URL: the deployment attempt stopped at the configured keystore password prompt. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for observed verification results and exact remaining human actions.
+The local build includes the real `genlayer-js` 1.1.8 adapter, injected-wallet writes, canonical reads, criterion-bound evidence forms, append-only history views, transaction-hash recovery, protocol/product-state separation, and the required routes. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for observed deployment and verification results.

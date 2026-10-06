@@ -143,7 +143,7 @@ class Accordant(gl.Contract):
         if int(delivery_deadline) <= int(proposal_deadline):
             raise gl.vm.UserError("Delivery deadline must follow proposal deadline")
 
-        stored = DynArray[Criterion]()
+        stored = []
         canonical = []
         required_count = 0
         seen_text = set()
@@ -171,10 +171,10 @@ class Accordant(gl.Contract):
             status="PROPOSED", accepted_at=u64(0), attempt_count=u32(0), latest_result="",
             completed_at=u64(0), created_at=u64(now),
         )
-        req_ids = self.wallet_ids.get(requester, DynArray[str]())
+        req_ids = self.wallet_ids[requester] if requester in self.wallet_ids else []
         req_ids.append(engagement_id)
         self.wallet_ids[requester] = req_ids
-        perf_ids = self.wallet_ids.get(perf, DynArray[str]())
+        perf_ids = self.wallet_ids[perf] if perf in self.wallet_ids else []
         perf_ids.append(engagement_id)
         self.wallet_ids[perf] = perf_ids
         return engagement_id
@@ -314,7 +314,7 @@ Do not turn unavailable evidence into NOT_MET. Do not infer completion from the 
 Include every criterion exactly once and no extra indices."""
             try:
                 raw = gl.nondet.exec_prompt(prompt, response_format="json")
-                parsed = json.loads(raw)
+                parsed = raw if isinstance(raw, dict) else json.loads(str(raw))
                 decisions = parsed.get("decisions", [])
                 if not isinstance(decisions, list) or len(decisions) != len(criteria):
                     raise ValueError("invalid decision count")
@@ -358,7 +358,7 @@ Include every criterion exactly once and no extra indices."""
             product_result = "INCONCLUSIVE"
         self.seen_submissions[replay_key] = True
 
-        history = self.attempts.get(engagement_id, DynArray[Attempt]())
+        history = self.attempts[engagement_id] if engagement_id in self.attempts else []
         attempt_no = int(e.attempt_count) + 1
         history.append(Attempt(
             number=u32(attempt_no), submission_digest=submission_digest,
@@ -389,7 +389,9 @@ Include every criterion exactly once and no extra indices."""
     @gl.public.view
     def get_attempts(self, engagement_id: str) -> list[dict]:
         self._get(engagement_id)
-        history = self.attempts.get(engagement_id, DynArray[Attempt]())
+        if engagement_id not in self.attempts:
+            return []
+        history = self.attempts[engagement_id]
         return [{
             "number": int(a.number), "submission_digest": a.submission_digest,
             "evidence_json": a.evidence_json, "result": a.result,
@@ -398,4 +400,7 @@ Include every criterion exactly once and no extra indices."""
 
     @gl.public.view
     def get_wallet_engagements(self, wallet: str) -> list[str]:
-        return [str(x) for x in self.wallet_ids.get(Address(wallet), DynArray[str]())]
+        address = Address(wallet)
+        if address not in self.wallet_ids:
+            return []
+        return [str(x) for x in self.wallet_ids[address]]

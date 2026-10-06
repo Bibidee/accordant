@@ -9,3 +9,6 @@ __pycache__/
 .env.*.local
 npm-debug.log*
 coverage/
+
+.vercel
+.env*
