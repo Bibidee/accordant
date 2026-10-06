@@ -27,7 +27,7 @@ This file records only facts observed in this workspace, including the productio
 - Deployment explorer: https://explorer-studio.genlayer.com/tx/0x334abe23fa1b1c016c599e45f826d9ae27c59628e4913aa60534125c9795f1e6
 - Deployment status: `FINALIZED`; result: `MAJORITY_AGREE`.
 - Deployment source SHA-256: `2070462C602DA537D40C05AA20BA331B9664A993A4AD770DE9A38645B6B9DB90`.
-- Matching local source commit: recorded after this deployment record update; the source SHA above matches the deployed file.
+- Matching local source commit: `701ff4e559ef3a0b3cf70c67605209b7d28d2906` (the contract source SHA above matches the deployed file).
 - Production frontend URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
 - Production deployment: https://vercel.com/bibidees-projects/accordant/7zJ2PcBKwr17XuHjbxFh59YxRkr4 (`READY`).
