@@ -1,1 +1,2 @@
 pytest==8.4.2
+genlayer-test==0.1.1

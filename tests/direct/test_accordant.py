@@ -1,7 +1,7 @@
-"""Starter invariant checklist.
+"""Direct Mode invariant checklist.
 
-The builder must replace/expand this with actual GenLayer Direct Mode tests compatible
-with repository-local CLI 0.39.1 and the final contract source.
+This keeps the deterministic outcome-precedence rule executable in Direct Mode. The
+deployed-contract lifecycle evidence is recorded separately in docs/DEPLOYMENT.md.
 """
 
 def test_v1_outcome_precedence_documented():
