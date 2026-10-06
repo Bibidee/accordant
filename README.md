@@ -104,7 +104,7 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository is a **build handoff**, not a claim of completed deployment. It contains the frozen product specification, security rules, starter source structure and exhaustive build prompt. The builder must audit the actual code, complete all real GenLayer integration, run tests, deploy the final contract to 61999, execute real lifecycle evidence, deploy the frontend and replace every evidence placeholder only with genuine results.
+This repository is a **locally integrated build**, not a claim of completed deployment. It contains the frozen product specification, security rules, implementation source and exhaustive build prompt. Deployment and live lifecycle evidence remain blocked on the configured signer and production browser environment; no placeholder is presented as evidence.
 
 Read `BUILD_PROMPT.txt` before changing anything.
 
