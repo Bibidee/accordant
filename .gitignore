@@ -12,3 +12,8 @@ coverage/
 
 .vercel
 .env*
+
+# Local Codex/agent metadata
+.codex/
+.agents/
+.openai/
