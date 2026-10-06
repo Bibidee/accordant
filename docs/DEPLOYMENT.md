@@ -48,7 +48,7 @@ The unlocked `fresh-alice` account signed the deployment. The resulting contract
 - `npm run typecheck` → passed.
 - `npm run lint` → passed.
 - `npm run build -- --webpack` → passed; all required routes compiled.
-- `npm test` → blocked by the restricted Windows workspace path: Vitest/esbuild cannot resolve the config from the parenthesized path and reports `Cannot read directory "../../..": Access is denied`. The test suite was not represented as passing.
+- `npm test` → passed with unrestricted filesystem access; `tests/ui/lifecycle.test.ts` passed all 4 tests.
 - Direct Mode (`gltest`/`genlayer-test` 0.1.1) → passed; the repository's current Direct Mode coverage contains one outcome-precedence invariant test.
 - `genlayer schema 0x36aeEf2E1FB5495937eeB483215BAeb20ce9a1e6 --rpc https://studio.genlayer.com/api` → passed; schema includes all 10 public methods with the expected read/write flags and return types.
 - `genlayer receipt 0x334abe23fa1b1c016c599e45f826d9ae27c59628e4913aa60534125c9795f1e6 --status FINALIZED` → passed; receipt status `FINALIZED`, result `MAJORITY_AGREE`.
