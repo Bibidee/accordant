@@ -1,0 +1,955 @@
+You are receiving the ACCORDANT V1 implementation handoff.
+
+Your job is to BUILD IT FULLY, not merely review the concept.
+
+The handoff contains a frozen product specification, architecture lock, security rules, starter Intelligent Contract, starter Next.js structure and test placeholders. Treat the product semantics below as authoritative. Independently audit the starter implementation, correct genuine defects, complete every real integration, run the full verification suite, deploy the final Intelligent Contract to GenLayer Studionet 61999, configure and deploy the frontend, execute real lifecycle evidence and leave the repository in submission-ready condition.
+
+Do not claim that a starter file is correct merely because it exists. Check actual code and actual runtime behavior.
+
+Do not redesign ACCORDANT into another product unless a concrete implementation defect requires a narrow correction.
+
+======================================================================
+ABSOLUTE NETWORK
+======================================================================
+
+Network: GenLayer Studionet
+Chain ID: 61999
+RPC: https://studio.genlayer.com/api
+Explorer: https://explorer-studio.genlayer.com
+
+Never use:
+- 61997
+- Studio-dev
+- another GenLayer network
+
+Search the entire repository before final handoff and ensure 61997/Studio-dev contamination does not exist.
+
+======================================================================
+TOOLCHAIN
+======================================================================
+
+Use the repository-local GenLayer CLI exactly:
+0.39.1
+
+Do not rely on a global CLI.
+Do not silently upgrade the CLI to an RC or newer version.
+
+Run and record:
+
+npx genlayer --version
+
+It must resolve to repository-local 0.39.1.
+
+The existing JS/client dependency may be changed only if actual Studionet/CLI compatibility requires it. Do not change versions casually just to silence errors. If you change a dependency, document the concrete incompatibility and rerun all affected verification.
+
+======================================================================
+CANONICAL ARCHITECTURE
+======================================================================
+
+USER
+→ NEXT.JS APP ROUTER + TYPESCRIPT FRONTEND
+→ INJECTED EIP-1193 WALLET
+→ GENLAYER STUDIONET 61999
+→ ACCORDANT INTELLIGENT CONTRACT
+→ VALIDATOR EVIDENCE RETRIEVAL + SEMANTIC JUDGMENT
+→ CANONICAL CONTRACT STATE
+→ FRONTEND
+
+NO APPLICATION BACKEND.
+
+Do not add:
+- Supabase
+- Firebase
+- Cloudflare Workers
+- Railway
+- Express
+- server databases
+- API decision services
+- authoritative Next.js API routes
+- authoritative Server Actions
+- cron
+- queues
+- backend signers
+- centralized AI inference
+- hidden operator services
+- admin adjudicators
+- manual outcome overrides
+
+Browser local storage is allowed only for non-authoritative convenience such as transaction-hash recovery. Canonical product state must always be reconstructed from the Intelligent Contract.
+
+Use ONE Intelligent Contract for V1 unless a genuine second trust boundary appears. Do not split contracts for style.
+
+======================================================================
+PRODUCT SEMANTICS
+======================================================================
+
+ACCORDANT is a neutral milestone-acceptance workspace for public, evidence-verifiable work.
+
+One engagement contains exactly ONE milestone in V1.
+
+A requester:
+1. connects an injected wallet;
+2. names one designated performer wallet;
+3. writes a milestone title and concise scope summary;
+4. defines 2–7 immutable acceptance criteria;
+5. marks each criterion REQUIRED or OPTIONAL;
+6. must include at least one REQUIRED criterion;
+7. sets a proposal-acceptance deadline;
+8. sets a later delivery deadline;
+9. signs creation of the proposal.
+
+Creating the proposal is the requester’s signed acceptance of those terms.
+
+The designated performer:
+1. reviews the exact frozen terms;
+2. accepts or declines before the proposal deadline;
+3. after acceptance may submit criterion-bound public evidence attempts before the delivery deadline.
+
+After performer acceptance:
+- criteria cannot change;
+- participants cannot change;
+- deadlines cannot change in V1;
+- requester cannot cancel;
+- neither party can set an outcome;
+- no admin can override anything.
+
+The performer submits public evidence explicitly bound to the criterion it is meant to prove.
+
+GenLayer validators independently retrieve the submitted evidence and determine, for EVERY criterion:
+- MET
+- NOT_MET
+- UNVERIFIABLE
+
+Definitions:
+
+MET
+Available evidence substantively demonstrates the exact frozen criterion is satisfied.
+
+NOT_MET
+Available evidence clearly demonstrates the exact frozen criterion is not satisfied.
+
+UNVERIFIABLE
+Evidence is missing, unavailable, malformed, rate-limited, oversized, ambiguous, irrelevant, mutable where durable proof is required, or otherwise insufficient for a reliable decision.
+
+Do not treat source unavailability as NOT_MET.
+
+Free-form explanations are for UX and provenance only. They must not be the primary consensus-critical field.
+
+The consensus-critical vector must include at minimum:
+- criterion index
+- criterion status
+- stable attempt/submission binding
+
+The contract then derives the overall PRODUCT result deterministically using REQUIRED criteria only:
+
+1. If ANY required criterion is NOT_MET:
+   REVISION_REQUIRED
+
+2. Otherwise, if ANY required criterion is UNVERIFIABLE:
+   INCONCLUSIVE
+
+3. Otherwise:
+   ACCEPTED
+
+Optional criteria may be judged and displayed, but MUST NOT cause REVISION_REQUIRED or INCONCLUSIVE in V1.
+
+Product-result behavior:
+
+ACCEPTED
+- engagement becomes COMPLETED
+- terminal in V1
+- no more attempts
+
+REVISION_REQUIRED
+- engagement remains ACTIVE
+- performer may make a new submission attempt before the delivery deadline
+
+INCONCLUSIVE
+- engagement remains ACTIVE
+- neither party is treated as having failed
+- performer may retry with stronger/available evidence before the delivery deadline
+
+The same exact evidence submission must not be evaluable twice for the same engagement.
+
+Every attempt is append-only. Do not overwrite a previous attempt.
+
+======================================================================
+DO NOT CONFUSE PRODUCT OUTCOMES WITH GENLAYER TRANSACTION STATES
+======================================================================
+
+ACCORDANT product outcomes:
+- ACCEPTED
+- REVISION_REQUIRED
+- INCONCLUSIVE
+
+GenLayer transaction/consensus lifecycle can include states such as:
+- submitted/pending
+- ACCEPTED
+- FINALIZED
+- UNDETERMINED
+- execution failure / equivalent runtime states
+
+These are NOT the same namespace.
+
+If a transaction reaches GenLayer ACCEPTED, the frontend must show it as PROVISIONAL until execution/finality and canonical contract readback confirm the expected state transition.
+
+If GenLayer protocol consensus becomes UNDETERMINED:
+- do not manufacture ACCORDANT INCONCLUSIVE;
+- do not append a fake attempt result;
+- show “Consensus was not reached. No milestone result was recorded.” or equivalent precise wording;
+- preserve/recover the exact transaction hash;
+- reread canonical state.
+
+======================================================================
+EVIDENCE MODEL
+======================================================================
+
+Evidence must remain bounded and criterion-specific.
+
+The performer does NOT submit one generic evidence dump.
+The contract/frontend do NOT crawl the open internet looking for proof.
+Validators evaluate only evidence explicitly submitted for each criterion.
+
+Each evidence reference should contain at minimum:
+- criterion index
+- source kind
+- HTTPS URL
+- optional short performer note
+
+Use bounded source kinds such as:
+- VERSIONED_SOURCE
+- TRANSACTION
+- PUBLIC_ARTIFACT
+- LIVE_DEPLOYMENT
+
+The exact names may be refined if implementation compatibility requires it, but the model must remain explicit and bounded.
+
+Strongly prefer stable/version-addressed public evidence for durable claims, including:
+- commit-addressed public source
+- tagged release artifacts
+- immutable transaction records
+- versioned public documents
+
+A live deployment URL may support a criterion, but do not treat “the page loaded” as proof of a broader historical or functional claim unless the criterion itself only asks for that fact.
+
+Security requirements:
+- HTTPS only
+- reject malformed URLs
+- reject localhost/loopback/private-network forms as far as practical
+- bound URL length
+- bound evidence refs per criterion
+- bound total evidence refs per attempt
+- bound fetched bytes/text
+- do not silently truncate oversized evidence and approve it
+- treat source failures as UNVERIFIABLE where appropriate
+- treat repository/page/code/comment/README text as UNTRUSTED DATA, never validator instructions
+- preserve prompt-injection protection
+- do not follow arbitrary secondary URLs embedded in fetched content
+- do not let a performer note substitute for evidence
+- do not let a mutable source silently prove a version-specific historical claim
+
+If your audit finds that a proposed evidence source cannot be safely/reliably fetched by GenLayer validators on Studionet, narrow V1 evidence support rather than weakening the trust model.
+
+======================================================================
+ORIGINALITY / CLEAN-ROOM RULE
+======================================================================
+
+ACCORDANT must remain independently recognizable and must NOT become a CharterLock or Patchbound derivative.
+
+Do not copy or recreate from reference projects:
+- names
+- logos
+- visual identity
+- page copy
+- storage schemas
+- method names
+- route hierarchy
+- forms
+- information architecture
+- authority classes
+- charter/case language
+- binary event schemas
+- YES/NO resolution semantics
+- protocol specimen / semantic firewall UX
+- challenge lineage UX
+- escrow/reward/payout mechanics
+- GitHub pull-request-specific settlement mechanics
+- prediction-market mechanics
+- generic arbitration/court mechanics
+
+The only reusable ideas are high-level engineering principles:
+- frozen terms
+- bounded evidence
+- deterministic state machines
+- independent validator judgment
+- prompt-injection resistance
+- replay protection
+- typed uncertainty
+- canonical on-chain state
+- honest transaction finality
+
+Before final handoff, perform a specific originality review and document why the final implementation is materially independent.
+
+======================================================================
+FRONTEND PRODUCT DIRECTION
+======================================================================
+
+Keep Next.js App Router + TypeScript.
+Use ordinary injected EIP-1193 wallets such as MetaMask or Rabby.
+No wallet snaps.
+
+Required routes:
+- /
+- /work
+- /work/new
+- /work/[engagementId]
+- /work/[engagementId]/submit
+- /work/[engagementId]/review/[attemptId]
+- /work/[engagementId]/history
+- /activity
+- /account
+
+Do not collapse the product into a generic Web3 dashboard.
+
+Visual direction:
+- professional project-delivery workspace
+- warm, spacious editorial canvas
+- strong document column + narrow context rail
+- criterion sheets/checklist cards
+- participant chips
+- evidence attachments
+- attempt ledger
+- consensus/transaction receipt drawer
+- restrained neutral palette with deep ink and restrained teal/cobalt/amber accents
+- avoid blueprint grids and protocol-console styling
+- avoid red/green-only meaning; pair status with text/iconography
+
+Landing-page core line:
+“Agree on what ‘done’ means before the work begins.”
+
+Do not reuse copy, layouts or visual motifs from the reference repositories.
+
+Frontend must support and actually verify:
+- wallet connect
+- disconnect/in-app disconnect state
+- account changes
+- chain changes
+- wrong-network detection
+- switch/add Studionet guidance
+- chain 61999 only
+- form validation
+- requester/performer role-aware controls
+- transaction signature rejection
+- transaction submission errors
+- exact transaction hash immediately after submission
+- consensus progression
+- GenLayer ACCEPTED shown as provisional
+- FINALIZED shown separately
+- protocol UNDETERMINED shown separately
+- execution failure
+- canonical postcondition/readback
+- explorer links
+- state reconstruction after refresh
+- no blind rebroadcast after timeout/refresh
+- narrow/mobile layouts
+
+======================================================================
+PHASE 1 — READ AND AUDIT BEFORE CHANGING ANYTHING
+======================================================================
+
+Unzip the handoff.
+Read the entire repository.
+
+Read first:
+- README.md
+- PRODUCT_SPEC.md
+- ARCHITECTURE.md
+- docs/SECURITY.md
+- docs/ORIGINALITY.md
+- HANDOFF_STATUS.md
+- contracts/accordant.py
+- frontend/app source
+- lib source
+- tests
+- scripts/network-check.mjs
+- docs/DEPLOYMENT.md
+
+Do not trust comments or documentation claims over code.
+Check the actual implementation.
+
+Specifically scrutinize:
+- GenLayer CLI 0.39.1 compatibility
+- Studionet 61999 compatibility
+- Python Intelligent Contract syntax/runtime compatibility
+- dataclass/storage compatibility
+- Address parsing and malformed address handling
+- TreeMap/DynArray mutations
+- datetime/time usage in GenLayer runtime
+- hashlib/json/re compatibility in contract runtime
+- public method argument encoding
+- public view return encoding
+- run_nondet_unsafe or current pinned equivalent
+- validator reproduction logic
+- web.get behavior
+- external response/body decoding
+- response size handling
+- prompt response format handling
+- malformed model output
+- duplicate criterion handling
+- required/optional logic
+- result precedence
+- replay-key construction
+- empty/unavailable evidence behavior
+- private/local URL rejection
+- redirect behavior
+- evidence URL identity
+- mutable evidence limitations
+- attempt recording
+- terminal states
+- expiry boundary
+- authorization
+- frontend argument encoding
+- frontend read decoding
+- transaction lifecycle polling
+- finality behavior
+- canonical readback
+- refresh recovery
+- explorer URLs
+- no hidden backend
+
+The starter contract is NOT automatically authoritative if an API is incompatible with CLI 0.39.1 / Studionet. Fix implementation defects while preserving product semantics.
+
+Do not change networks to make the code work.
+
+======================================================================
+PHASE 2 — COMPLETE THE INTELLIGENT CONTRACT
+======================================================================
+
+Implement/fix the final one-contract V1.
+
+At minimum the final contract must correctly support:
+- create engagement
+- 2–7 immutable criteria
+- at least one required criterion
+- designated performer
+- proposal deadline
+- delivery deadline
+- performer acceptance
+- performer decline
+- requester cancellation only pre-acceptance
+- expiry
+- performer-only evidence submission
+- criterion-bound evidence
+- bounded evidence validation
+- independent validator fetch/evaluation
+- strict decision-vector validation
+- deterministic overall result derivation
+- append-only attempts
+- exact duplicate submission replay protection
+- terminal ACCEPTED/COMPLETED state
+- retry after REVISION_REQUIRED
+- retry after INCONCLUSIVE
+- public reads needed by the frontend
+- wallet-scoped engagement discovery or another backendless on-chain retrieval strategy
+
+Keep semantic judgment narrow:
+“Does the submitted admissible evidence demonstrate that this exact frozen criterion has been materially satisfied?”
+
+Do not ask validators to decide lifecycle legality, authorization, participant identity, deadline legality or result precedence. Those are deterministic contract responsibilities.
+
+Do not let the model invent evidence.
+Do not let the model browse beyond submitted evidence.
+Do not make explanations consensus-critical unless technically unavoidable.
+
+If validator calls fail or output is malformed, preserve uncertainty safely. Do not transform infrastructure failure into NOT_MET.
+
+======================================================================
+PHASE 3 — COMPLETE THE FRONTEND
+======================================================================
+
+Replace all starter notices/placeholders with real contract integration.
+
+Do not simulate:
+- wallet identities
+- engagement data
+- criterion decisions
+- transaction hashes
+- network state
+- consensus state
+- finality
+- attempt history
+- product outcomes
+
+Build the required pages with original UX.
+
+Home `/`
+- product proposition
+- wallet-aware entry
+- create/open actions
+- no fake metrics
+
+Work `/work`
+- wallet-scoped requester and performer engagements
+- clear status and role
+- read from contract
+
+New `/work/new`
+- performer address
+- milestone title
+- summary
+- dynamic 2–7 criteria
+- required/optional selector
+- proposal deadline
+- delivery deadline
+- strong client validation that mirrors contract bounds without replacing contract enforcement
+- create transaction
+
+Workspace `/work/[engagementId]`
+- requester + performer
+- immutable terms digest
+- deadlines
+- frozen criteria
+- current lifecycle state
+- role-aware accept/decline/cancel/expire/submit actions
+- latest attempt summary
+- explorer/transaction provenance where relevant
+
+Submit `/work/[engagementId]/submit`
+- show frozen criteria first
+- evidence attached to criterion
+- bounded refs
+- source kind
+- HTTPS URL
+- note
+- clear reminder that evidence is public and validators will inspect it
+- exact payload preview before signature
+
+Attempt review `/work/[engagementId]/review/[attemptId]`
+- overall product result
+- each criterion decision
+- required/optional label
+- evidence used
+- short stored explanation if available
+- transaction lifecycle and explorer provenance
+- revision/new-attempt action only when canonical state permits
+
+History `/work/[engagementId]/history`
+- append-only attempts in order
+- do not hide earlier failures/inconclusive attempts
+
+Activity `/activity`
+- submitted transaction hashes saved for recovery convenience
+- reconcile exact hash
+- do not claim canonical status from local storage
+
+Account `/account`
+- wallet
+- chain
+- RPC/network label
+- configured contract
+- clear wrong-network handling
+
+======================================================================
+PHASE 4 — INSTALL AND VERIFY LOCALLY
+======================================================================
+
+Install dependencies.
+Generate and commit the correct lockfile if none exists.
+
+Confirm:
+
+npx genlayer --version
+
+must be 0.39.1.
+
+Run the actual relevant commands:
+
+npm run network:check
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+
+Install the pinned Python/Direct Mode dependencies required by the final GenLayer toolchain and run the Direct Mode suite.
+
+Do not merely say tests should pass.
+Record actual command results.
+
+Expand tests around every meaningful invariant discovered during audit.
+Do not optimize for test count.
+
+At minimum verify:
+
+1. engagement creation with 2 criteria
+2. engagement creation with 7 criteria
+3. fewer than 2 criteria rejected
+4. more than 7 criteria rejected
+5. criterion required/text arrays mismatch rejected
+6. zero required criteria rejected
+7. duplicate criteria rejected
+8. malformed performer address rejected
+9. requester == performer rejected
+10. title bounds
+11. summary bounds
+12. criterion text bounds
+13. past proposal deadline rejected
+14. delivery deadline before proposal deadline rejected
+15. designated performer only can accept
+16. designated performer only can decline
+17. requester may cancel PROPOSED
+18. non-requester cannot cancel
+19. requester cannot cancel after performer acceptance
+20. terms/criteria cannot mutate after creation
+21. expiry from PROPOSED after proposal deadline
+22. expiry from ACTIVE after delivery deadline
+23. no premature expiry
+24. performer only can submit attempt
+25. no attempt while PROPOSED
+26. no attempt after COMPLETED
+27. no attempt after EXPIRED
+28. malformed evidence JSON rejected
+29. unknown criterion index rejected
+30. unknown source kind rejected
+31. non-HTTPS evidence rejected
+32. local/private evidence URL rejected where intended
+33. per-criterion evidence bound enforced
+34. total evidence bound enforced
+35. all required MET -> ACCEPTED
+36. ACCEPTED -> COMPLETED
+37. required NOT_MET -> REVISION_REQUIRED + remains ACTIVE
+38. required UNVERIFIABLE -> INCONCLUSIVE + remains ACTIVE
+39. optional NOT_MET does not block ACCEPTED when all required are MET
+40. optional UNVERIFIABLE does not block ACCEPTED when all required are MET
+41. NOT_MET takes precedence over UNVERIFIABLE across required criteria
+42. unavailable source -> UNVERIFIABLE, not NOT_MET
+43. malformed validator output safely handled
+44. prompt-injection evidence cannot become validator instruction
+45. oversized evidence cannot be silently truncated and approved
+46. exact duplicate submission replay rejected
+47. new evidence after REVISION_REQUIRED allowed
+48. new evidence after INCONCLUSIVE allowed
+49. previous attempts remain immutable/readable
+50. terminal COMPLETED cannot reactivate
+51. result derivation is deterministic
+52. lying leader/validator disagreement where Direct Mode permits
+53. frontend wrong-network handling
+54. frontend account-change handling
+55. transaction rejection handling
+56. exact submitted hash persistence
+57. ACCEPTED displayed provisional
+58. FINALIZED displayed separately
+59. protocol UNDETERMINED does not become product INCONCLUSIVE
+60. refresh recovery checks exact hash and rereads canonical state
+61. no blind rebroadcast after timeout
+62. repository-wide no-backend check
+63. repository-wide no 61997/Studio-dev contamination
+64. production contract address cannot remain zero after final deployment
+
+======================================================================
+PHASE 5 — DEPLOY THE FINAL CONTRACT
+======================================================================
+
+Only after the final contract source and tests are complete:
+
+Deploy contracts/accordant.py to GenLayer Studionet 61999 using repository-local CLI 0.39.1.
+
+Do not deploy an older copy.
+Do not deploy to 61997.
+Do not switch networks because of an error.
+
+Wait for the real deployment lifecycle honestly.
+
+Capture:
+- final contract address
+- deployment transaction hash
+- explorer URL
+- exact deployed contract source SHA-256
+- exact Git commit containing the deployed source
+
+If the contract source changes after deployment, that deployment is obsolete.
+Redeploy and replace old evidence.
+
+======================================================================
+PHASE 6 — CONFIGURE THE REAL FRONTEND
+======================================================================
+
+Set NEXT_PUBLIC_ACCORDANT_CONTRACT to the FINAL deployed address.
+
+Ensure production contains no:
+- zero contract placeholder
+- localhost contract
+- test contract
+- stale contract
+- old deployment
+- 61997 address
+- Studio-dev RPC
+
+Run the full frontend preflight AGAIN after real contract configuration.
+
+======================================================================
+PHASE 7 — EXECUTE REAL STUDIONET LIFECYCLES
+======================================================================
+
+Execute real 61999 lifecycle evidence where wallet access permits.
+Never fabricate transaction hashes, addresses, attempt IDs, validator outcomes or final states.
+
+Use real public evidence that genuinely matches the criteria you create.
+
+A. ACCEPTED PATH
+
+Requester creates a real engagement
+→ performer accepts
+→ performer submits real criterion-bound public evidence
+→ validators evaluate every criterion
+→ required criteria become MET
+→ product result ACCEPTED
+→ transaction genuinely finalizes
+→ canonical readback shows COMPLETED
+
+Capture all hashes and explorer links.
+
+B. REVISION PATH
+
+Create/choose an engagement where the first submitted evidence genuinely leaves at least one required criterion clearly NOT_MET
+→ result REVISION_REQUIRED
+→ engagement remains ACTIVE
+→ submit corrected/new evidence
+→ reevaluate
+→ prove the next attempt can succeed when evidence genuinely supports it
+
+Do not intentionally misdescribe evidence just to manufacture NOT_MET. Use a real criterion/evidence mismatch.
+
+C. INCONCLUSIVE PATH
+
+Use a safe real scenario where required evidence is unavailable, insufficient or otherwise genuinely UNVERIFIABLE
+→ product result INCONCLUSIVE
+→ engagement remains ACTIVE
+→ no party is treated as having failed
+
+Do not conflate this with protocol UNDETERMINED.
+
+D. EXPIRY PATH where practical
+
+Create a short-lived engagement if network/runtime timing makes this practical
+→ deadline genuinely passes
+→ close_expired
+→ canonical state EXPIRED
+
+E. PROTOCOL FAILURE/UNDETERMINED observation where naturally encountered
+
+If a real transaction reaches protocol UNDETERMINED, document it accurately.
+Do not intentionally sabotage validators or fabricate protocol states.
+
+If an action requires a human wallet signature you do not control, stop only at that exact interaction and provide:
+- wallet that must sign
+- exact network
+- exact page/action
+- exact transaction purpose
+- values being submitted
+- expected postcondition
+
+Complete every other possible task automatically.
+
+======================================================================
+PHASE 8 — VERCEL PRODUCTION DEPLOYMENT
+======================================================================
+
+Deploy the final frontend to Vercel using the final contract address.
+
+After deployment, open and test the REAL production application.
+Do not claim browser verification unless actually performed.
+
+Verify desktop and narrow/mobile layouts.
+
+Check:
+- app loads
+- original design is intact
+- navigation
+- wallet connect
+- disconnect/in-app disconnect state
+- account changes where testable
+- wrong-network state
+- switch/add Studionet guidance
+- chain 61999
+- form bounds
+- role-aware controls
+- real transaction request
+- transaction rejection
+- exact hash display
+- consensus progression
+- ACCEPTED provisional state
+- FINALIZED state
+- protocol UNDETERMINED state handling
+- canonical contract reads
+- engagement workspace
+- submission form
+- criterion decisions
+- attempt history
+- refresh recovery
+- explorer links
+- no critical browser console errors
+- no hidden API dependency
+
+======================================================================
+PHASE 9 — DOCUMENTATION
+======================================================================
+
+Update README and docs/DEPLOYMENT.md only with real facts.
+
+Document:
+- product
+- why GenLayer is necessary
+- exact architecture
+- network 61999
+- RPC
+- local CLI 0.39.1
+- final contract address
+- deployment transaction
+- explorer URL
+- deployed source SHA-256
+- final matching Git commit
+- frontend stack
+- test suites actually run
+- actual pass/fail counts/results
+- real lifecycle transaction hashes
+- real engagement/attempt IDs
+- live Vercel URL
+- browser verification performed
+- originality statement
+- genuine known limitations
+
+Do not include private brainstorming.
+Do not claim unsupported capabilities.
+Do not call mutable evidence immutable.
+Do not imply legal enforceability.
+Do not imply wallet addresses are verified legal identities.
+Do not claim generic private evidence support if V1 is public-only.
+
+======================================================================
+PHASE 10 — FINAL HOSTILE AUDIT
+======================================================================
+
+Distrust the finished project.
+Re-open it from scratch and try to disprove every important claim.
+
+Check:
+- no hidden backend
+- no centralized outcome authority
+- GenLayer semantic judgment is substantive
+- validators independently retrieve submitted evidence
+- validators do not crawl unrelated sources
+- evidence cannot become instructions
+- source failure cannot silently become NOT_MET
+- required/optional result precedence is correct
+- all criteria are returned exactly once
+- malformed validator vectors cannot corrupt state
+- replay protection works
+- authorization cannot be bypassed
+- criteria cannot mutate after proposal creation
+- requester cannot cancel after performer acceptance
+- performer cannot self-certify outcome
+- ACCEPTED is terminal
+- revision/inconclusive attempts can recover
+- previous attempts remain append-only
+- terminal states cannot reactivate
+- deadlines are enforced at boundaries
+- frontend calls the final deployed contract
+- source matches deployed contract
+- only 61999 exists
+- no Studio-dev contamination
+- GenLayer ACCEPTED is not called final
+- protocol UNDETERMINED is not called product INCONCLUSIVE
+- refresh reconstructs canonical state
+- no blind rebroadcast
+- documentation does not overclaim
+- no live path is mocked
+- no secrets are committed
+- visual/terminology implementation remains original and is not a CharterLock or Patchbound reskin
+
+Fix every material defect and rerun affected tests.
+
+======================================================================
+VERSION CONTROL
+======================================================================
+
+Use a clean repository.
+Commit coherent changes.
+
+Do not commit:
+- private keys
+- seed phrases
+- credentials
+- wallet secrets
+- .env secrets
+- build caches
+- irrelevant generated files
+
+Push the final repository when GitHub access is available.
+Ensure the working tree is clean.
+If CI exists, ensure the final CI is green.
+
+======================================================================
+FINAL RESPONSE FORMAT
+======================================================================
+
+Return exactly these sections with real evidence:
+
+## Final Product
+What ACCORDANT now genuinely does.
+
+## Why GenLayer
+The exact semantic judgment GenLayer validators independently perform and why deterministic/off-chain unilateral logic is insufficient.
+
+## Architecture
+Exact frontend → wallet → contract → validator judgment → canonical state architecture.
+
+## Repository
+URL, branch and exact final commit.
+
+## Toolchain
+Actual versions used, including repository-local CLI 0.39.1 and Studionet 61999.
+
+## Contract
+Final contract address, deployment transaction and explorer URL.
+
+## Source Integrity
+Deployed contract source SHA-256 and matching repository commit.
+
+## Product Semantics
+Final states, criterion decisions, result derivation and retry/terminal behavior.
+
+## Tests
+Every suite actually executed and its real pass/fail result.
+
+## Live Lifecycle Evidence
+Real transaction hashes, engagement IDs, attempt IDs, criterion vectors, product outcomes and canonical final states for ACCEPTED, REVISION_REQUIRED/retry and INCONCLUSIVE paths where completed.
+
+## Frontend
+Real Vercel URL and exactly what was browser-tested.
+
+## Transaction Lifecycle
+Evidence that submitted, provisional ACCEPTED, FINALIZED, failure/UNDETERMINED and canonical readback are represented correctly.
+
+## Network Contamination Check
+Repository-wide result for 61997/Studio-dev.
+
+## Security / Invariant Audit
+Important adversarial checks and results.
+
+## Originality Check
+Explain concretely why ACCORDANT is materially independent from CharterLock/Patchbound in mechanics, terminology, UX, routes and implementation.
+
+## Known Limitations
+Only genuine remaining limitations.
+
+## Manual Actions Required
+Exact numbered human-only actions, if any.
+
+## Final Status
+Choose only:
+COMPLETE
+COMPLETE WITH MANUAL ACTION
+NOT COMPLETE
+
+Do not call it COMPLETE unless deployment, integration, production browser verification and real lifecycle evidence are genuinely complete.
+Do not fabricate evidence to satisfy the report.

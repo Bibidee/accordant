@@ -1,0 +1,1 @@
+export function BuildNotice() { return <div className="notice"><strong>Build handoff:</strong> real contract reads/writes and final transaction reconciliation must be completed by the builder. This starter does not simulate successful blockchain state.</div>; }
