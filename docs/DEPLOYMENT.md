@@ -25,7 +25,7 @@ This file records only facts observed in this workspace. It is intentionally inc
 - Contract address: **not deployed**.
 - Deployment transaction: **not available**.
 - Source SHA-256: `86E20FBBE7BFF7A506AA620A2261CCBBEFD7D16FAE9380C4AF3BDD552736521B` for the current local source; this is not a deployed-source claim.
-- Matching Git commit: **not available**; this handoff directory did not contain a Git repository when work began.
+- Local final Git commit: `950e8872fe8ce7d202c94711ad1ac81d6436af61` on `master`; no remote URL is configured and this commit is not a deployed-source match.
 - Production frontend URL: **not deployed**.
 
 The real deployment command is:
