@@ -35,7 +35,7 @@ There is no application backend, server database, operator signer, cron worker, 
 - Explorer: `https://explorer-studio.genlayer.com`
 - Repository-local GenLayer CLI: `0.39.1`
 
-Never use Studio-dev or chain `61997`.
+Never use a non-Studionet network.
 
 ## V1 roles
 

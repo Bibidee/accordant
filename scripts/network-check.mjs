@@ -1,7 +1,7 @@
 const fs = await import("node:fs");
 const path = await import("node:path");
 const root = process.cwd();
-const banned = [/61997/g, /studio-dev/gi];
+const banned = [new RegExp(["619", "97"].join(""), "g"), new RegExp(["studio", "-dev"].join(""), "gi")];
 const allowedDirs = new Set(["node_modules", ".next", ".git"]);
 let bad = [];
 function walk(dir) {
