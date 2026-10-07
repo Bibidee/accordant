@@ -1,6 +1,6 @@
 # Accordant hardening audit
 
-Audit baseline: `4e863c534254d402b0f593e66fcf8646518521ed` (2026-10-06). Remediation pass: `48281c7df1af71086017c7425c0315cf195f2510` and subsequent documentation/lifecycle evidence updates.
+Audit baseline: `4e863c534254d402b0f593e66fcf8646518521ed` (2026-10-06). Remediation pass: `48281c7df1af71086017c7425c0315cf195f2510` and frontend hardening commit `be306a8936fbb4e5c33061883362e04ed6f3d1f0`.
 
 The baseline findings below are retained as historical context. The current status is recorded in the resolved findings that follow; they are not open release blockers unless explicitly marked remaining.
 

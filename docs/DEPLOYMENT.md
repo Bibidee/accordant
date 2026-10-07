@@ -47,8 +47,9 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 
 - Production URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
-- Production deployment: https://vercel.com/bibidees-projects/accordant/9zaZrc6229GMYvzXB8JaaJZxEUfc (`READY`).
-- Generated deployment URL: https://accordant-66gk1i1lm-bibidees-projects.vercel.app
+- Production deployment: https://vercel.com/bibidees-projects/accordant/4WnQNNL55rN97AbCo8XNfKDiaTFV (`READY`).
+- Generated deployment URL: https://accordant-vmo1sukko-bibidees-projects.vercel.app
+- Frontend source commit: `be306a8936fbb4e5c33061883362e04ed6f3d1f0`.
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -60,7 +61,7 @@ The following checks passed locally:
 - `npm run typecheck`.
 - `npm run lint`.
 - `npm run test` — 17 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, attempt matching, terminal transaction branches, and finalized receipt refresh.
-- `npm run build` — all required routes compiled.
+- `npm run build -- --webpack` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
 - Full `npm audit --audit-level=high` — 10 development-tree vulnerabilities (3 moderate, 5 high, 2 critical) remain in Vitest/tinypool, braces through Next ESLint tooling, and dockerode’s nested uuid. No `npm audit fix --force` was applied because the suggested fixes include breaking dependency changes.
 - `git diff --check`.
@@ -68,7 +69,7 @@ The following checks passed locally:
 - Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
 
-The production URLs `/`, `/work`, `/work/new`, `/activity`, and `/account` returned successfully after the fresh deployment. The production build has responsive breakpoints and no horizontal overflow in the bounded desktop layout checks. The Windows browser automation helper failed to initialize during this pass, so an exact interactive `390x844` viewport check was not performed and is explicitly not claimed.
+The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The production build has responsive breakpoints and no horizontal overflow in the bounded desktop layout checks. The Windows browser automation helper failed to initialize during this pass, so an exact interactive `390x844` viewport check was not performed and is explicitly not claimed.
 
 ## Live two-wallet lifecycle
 
@@ -116,4 +117,4 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, and lifecycle-runner cleanup; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
 
-The only unperformed verification is the exact interactive `390x844` browser viewport check because the Windows browser automation helper failed to initialize. No contract or lifecycle evidence is being fabricated for that gap.
+The only unperformed verification is the exact interactive `390x844` browser viewport check because the Windows browser automation helper failed to initialize on two attempts. No contract or lifecycle evidence is being fabricated for that gap.
