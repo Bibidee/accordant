@@ -20,6 +20,7 @@ The baseline findings below are retained as historical context. The current stat
 - Transaction UI has separate success and failure rails and a distinct canonical-state-verified step.
 - Manual receipt refresh and polling share the same finalized/canonical readback path.
 - Creation readback checks the pre-write requester count, full frozen terms, criteria order/required flags, status, and terms digest. Evidence readback scans only attempts appended after the pre-write baseline, matches exact canonical evidence JSON and submission digest, fails closed unless there is one match, and distinguishes latest-attempt state from historical revision/inconclusive state.
+- Canonical reconciliation preserves valid `REVISION_REQUIRED` and `INCONCLUSIVE` receipts after a later legitimate `EXPIRED` lifecycle transition. Latest non-accepted attempts require matching `latest_result`; historical non-accepted attempts remain valid across `ACTIVE`, `COMPLETED`, and `EXPIRED` states.
 - Latest-first page reads compare the count probe with the returned page total and recalculate the latest window at most once, preserving a bounded one-count/two-page read budget even when more records arrive during the retry.
 - Frontend evidence URL validation remains aligned with the contract boundary.
 

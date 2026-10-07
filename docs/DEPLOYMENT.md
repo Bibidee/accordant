@@ -62,7 +62,7 @@ The following checks passed locally:
 - `npm run network:check` — Studionet 61999 only.
 - `npm run typecheck`.
 - `npm run lint`.
-- `npm run test` — 25 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, pagination-count races, terminal transaction branches, and finalized receipt refresh.
+- `npm run test` — 31 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, expiry reconciliation, pagination-count races, terminal transaction branches, and finalized receipt refresh.
 - `npm run build -- --webpack` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
 - Full `npm audit --audit-level=high` — `found 0 vulnerabilities` after isolating the deploy CLI, updating Vitest, and replacing the vulnerable Next ESLint bundle with ESLint 9-compatible maintained packages.
