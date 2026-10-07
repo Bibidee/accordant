@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CHAIN_ID, RPC_URL } from "../../lib/constants";
 import { deriveProductResult, isPrivateOrLocalHostname, normalizeEvidenceUrl, validateEvidenceRefs, validateEvidenceUrl, validatePerformerAddress } from "../../lib/validation";
-import { attemptIdentityMatches, attemptStateIsConsistent, canonicalAttemptMatch, canonicalEvidence, canonicalFrozenTerms, canonicalJson, computeSubmissionDigest, computeTermsDigest, findCanonicalAttemptAfterBaseline, frozenTermsMatch } from "../../lib/canonical";
+import { attemptIdentityMatches, attemptStateIsConsistent, canSubmitEvidence, canonicalAttemptMatch, canonicalEvidence, canonicalFrozenTerms, canonicalJson, computeSubmissionDigest, computeTermsDigest, findCanonicalAttemptAfterBaseline, frozenTermsMatch } from "../../lib/canonical";
 import { FAILURE_PHASES, SUCCESS_STAGES, transactionRailState } from "../../lib/transaction";
 import { isCurrentWalletPageRequest, latestFirstPage, latestPageWithRetry, olderPage } from "../../lib/pagination";
 import { WORK_SECTION_CONFIG, workSectionLabel } from "../../lib/work";
@@ -138,6 +138,13 @@ describe("latest-first wallet pagination", () => {
 });
 
 describe("canonical frozen terms and evidence", () => {
+  it("only keeps the evidence desk open for active engagements", () => {
+    expect(canSubmitEvidence({ status: "ACTIVE" })).toBe(true);
+    for (const status of ["PROPOSED", "COMPLETED", "DECLINED", "CANCELLED", "EXPIRED"] as const) {
+      expect(canSubmitEvidence({ status })).toBe(false);
+    }
+  });
+
   const terms = canonicalFrozenTerms({
     requester: "0x1111111111111111111111111111111111111111",
     performer: "0x2222222222222222222222222222222222222222",

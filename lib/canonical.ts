@@ -120,6 +120,10 @@ export function expectedStatusForResult(result: ProductResult): Engagement["stat
   return result === "ACCEPTED" ? "COMPLETED" : "ACTIVE";
 }
 
+export function canSubmitEvidence(engagement: Pick<Engagement, "status">): boolean {
+  return engagement.status === "ACTIVE";
+}
+
 export function attemptIdentityMatches(attempt: Attempt, expectedDigest: string, expectedEvidenceJson: string): boolean {
   return attempt.submission_digest === expectedDigest && attempt.evidence_json === expectedEvidenceJson;
 }
