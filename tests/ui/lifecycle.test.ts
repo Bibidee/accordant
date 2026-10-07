@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { CHAIN_ID, RPC_URL } from "../../lib/constants";
 import { deriveProductResult, isPrivateOrLocalHostname, normalizeEvidenceUrl, validateEvidenceRefs, validateEvidenceUrl, validatePerformerAddress } from "../../lib/validation";
-import { canonicalAttemptMatch, canonicalEvidence, canonicalFrozenTerms, canonicalJson, computeSubmissionDigest, computeTermsDigest, frozenTermsMatch } from "../../lib/canonical";
+import { attemptIdentityMatches, attemptStateIsConsistent, canonicalAttemptMatch, canonicalEvidence, canonicalFrozenTerms, canonicalJson, computeSubmissionDigest, computeTermsDigest, findCanonicalAttemptAfterBaseline, frozenTermsMatch } from "../../lib/canonical";
 import { FAILURE_PHASES, SUCCESS_STAGES, transactionRailState } from "../../lib/transaction";
-import { isCurrentWalletPageRequest, latestFirstPage, olderPage } from "../../lib/pagination";
+import { isCurrentWalletPageRequest, latestFirstPage, latestPageWithRetry, olderPage } from "../../lib/pagination";
 import { WORK_SECTION_CONFIG, workSectionLabel } from "../../lib/work";
 import type { Attempt, Criterion, Engagement, EvidenceRef } from "../../lib/types";
 
@@ -85,6 +85,56 @@ describe("latest-first wallet pagination", () => {
     expect(workSectionLabel("incoming")).toBe("Incoming");
     expect(workSectionLabel("accepted")).toBe("Accepted performer");
   });
+
+  it("fetches one stable latest page when the total is unchanged", async () => {
+    const calls: Array<[number, number]> = [];
+    const result = await latestPageWithRetry(
+      async () => ({ total: 53 }),
+      async (offset, limit) => { calls.push([offset, limit]); return { total: 53, ids: [] }; },
+      (page) => page.total,
+      20,
+    );
+    expect(result).toMatchObject({ offset: 33, limit: 20, retried: false, probeTotal: 53 });
+    expect(calls).toEqual([[33, 20]]);
+  });
+
+  it("recalculates once when one concurrent append changes the page total", async () => {
+    const calls: Array<[number, number]> = [];
+    let pageReads = 0;
+    const result = await latestPageWithRetry(
+      async () => ({ total: 53 }),
+      async (offset, limit) => { calls.push([offset, limit]); pageReads += 1; return { total: pageReads === 1 ? 54 : 54, ids: [] }; },
+      (page) => page.total,
+      20,
+    );
+    expect(result).toMatchObject({ offset: 34, limit: 20, retried: true, probeTotal: 53 });
+    expect(calls).toEqual([[33, 20], [34, 20]]);
+  });
+
+  it("accepts the second bounded response if writes continue during the retry", async () => {
+    let pageReads = 0;
+    const result = await latestPageWithRetry(
+      async () => ({ total: 53 }),
+      async () => { pageReads += 1; return { total: 53 + pageReads, ids: [] }; },
+      (page) => page.total,
+      20,
+    );
+    expect(result.retried).toBe(true);
+    expect(pageReads).toBe(2);
+    expect(result.page.total).toBe(55);
+  });
+
+  it("uses a safe one-record query for an empty index", async () => {
+    const calls: Array<[number, number]> = [];
+    const result = await latestPageWithRetry(
+      async () => ({ total: 0 }),
+      async (offset, limit) => { calls.push([offset, limit]); return { total: 0, ids: [] }; },
+      (page) => page.total,
+      20,
+    );
+    expect(result).toMatchObject({ offset: 0, limit: 1, retried: false });
+    expect(calls).toEqual([[0, 1]]);
+  });
 });
 
 describe("canonical frozen terms and evidence", () => {
@@ -132,12 +182,56 @@ describe("canonical frozen terms and evidence", () => {
     });
   });
 
-  it("only verifies the exact newly appended attempt and resulting status", () => {
-    const attempt = { number: 2, submission_digest: "digest", evidence_json: "evidence", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
-    const engagement = { status: "ACTIVE", latest_result: "REVISION_REQUIRED" } as Engagement;
-    expect(canonicalAttemptMatch(engagement, attempt, 2, "digest", "evidence")).toBe(true);
-    expect(canonicalAttemptMatch(engagement, { ...attempt, number: 1 }, 2, "digest", "evidence")).toBe(false);
-    expect(canonicalAttemptMatch({ ...engagement, latest_result: "INCONCLUSIVE" }, attempt, 2, "digest", "evidence")).toBe(false);
+  it("verifies a concurrent submission by digest among appended attempts", async () => {
+    const attempts = [
+      { number: 3, submission_digest: "digest-A", evidence_json: "evidence-A", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 },
+      { number: 4, submission_digest: "digest-B", evidence_json: "evidence-B", result: "INCONCLUSIVE", decisions_json: "[]", submitted_at: 2 },
+    ] as Attempt[];
+    const found = await findCanonicalAttemptAfterBaseline({
+      baselineAttemptCount: 2, currentAttemptCount: 4, expectedDigest: "digest-B", expectedEvidenceJson: "evidence-B",
+      readPage: async (offset, limit) => ({ items: attempts.filter((attempt) => attempt.number > offset && attempt.number <= offset + limit), next_offset: 0, total: 4 }),
+    });
+    expect(found?.number).toBe(4);
+  });
+
+  it("accepts a historical revision attempt even after a later attempt changes latest_result", async () => {
+    const userAttempt = { number: 3, submission_digest: "digest-B", evidence_json: "evidence-B", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const found = await findCanonicalAttemptAfterBaseline({
+      baselineAttemptCount: 2, currentAttemptCount: 4, expectedDigest: "digest-B", expectedEvidenceJson: "evidence-B",
+      readPage: async () => ({ items: [userAttempt, { ...userAttempt, number: 4, submission_digest: "digest-C", evidence_json: "evidence-C", result: "INCONCLUSIVE" } as Attempt], next_offset: 0, total: 4 }),
+    });
+    const engagement = { status: "ACTIVE", latest_result: "INCONCLUSIVE", attempt_count: 4 } as Engagement;
+    expect(found?.number).toBe(3);
+    expect(attemptIdentityMatches(userAttempt, "digest-B", "evidence-B")).toBe(true);
+    expect(attemptStateIsConsistent(engagement, userAttempt, false)).toBe(true);
+    expect(canonicalAttemptMatch({ engagement, attempt: userAttempt, expectedDigest: "digest-B", expectedEvidenceJson: "evidence-B" })).toBe(true);
+  });
+
+  it("verifies latest revision and accepted terminal attempts with their compatible state", () => {
+    const revision = { number: 3, submission_digest: "digest", evidence_json: "evidence", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const accepted = { number: 3, submission_digest: "digest-A", evidence_json: "evidence-A", result: "ACCEPTED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    expect(attemptStateIsConsistent({ status: "ACTIVE", latest_result: "REVISION_REQUIRED", attempt_count: 3 } as Engagement, revision)).toBe(true);
+    expect(attemptStateIsConsistent({ status: "COMPLETED", latest_result: "ACCEPTED", attempt_count: 3 } as Engagement, accepted)).toBe(true);
+  });
+
+  it("fails closed for no match, duplicate match, and an unchanged attempt count", async () => {
+    const page = (items: Attempt[], total = 4) => async () => ({ items, next_offset: 0, total });
+    const expected = { baselineAttemptCount: 2, currentAttemptCount: 4, expectedDigest: "digest", expectedEvidenceJson: "evidence" };
+    const attempt = { number: 3, submission_digest: "digest", evidence_json: "evidence", result: "INCONCLUSIVE", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    await expect(findCanonicalAttemptAfterBaseline({ ...expected, readPage: page([]) })).resolves.toBeNull();
+    await expect(findCanonicalAttemptAfterBaseline({ ...expected, readPage: page([attempt, { ...attempt, number: 4 }]) })).resolves.toBeNull();
+    await expect(findCanonicalAttemptAfterBaseline({ ...expected, currentAttemptCount: 2, readPage: page([attempt]) })).resolves.toBeNull();
+  });
+
+  it("does not scan attempts beyond the canonical appended range", async () => {
+    const offsets: number[] = [];
+    const attempt = { number: 21, submission_digest: "digest", evidence_json: "evidence", result: "INCONCLUSIVE", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const found = await findCanonicalAttemptAfterBaseline({
+      baselineAttemptCount: 20, currentAttemptCount: 21, expectedDigest: "digest", expectedEvidenceJson: "evidence",
+      readPage: async (offset, limit) => { offsets.push(offset, limit); return { items: [attempt], next_offset: 0, total: 21 }; },
+    });
+    expect(found?.number).toBe(21);
+    expect(offsets).toEqual([20, 20]);
   });
 });
 

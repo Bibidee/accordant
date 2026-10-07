@@ -53,3 +53,21 @@ export function isCurrentWalletPageRequest(
 ): boolean {
   return requestVersion === currentVersion && requestWallet.trim().toLowerCase() === currentWallet.trim().toLowerCase();
 }
+
+export async function latestPageWithRetry<T>(
+  readCount: () => Promise<T>,
+  readPage: (offset: number, limit: number) => Promise<T>,
+  getTotal: (page: T) => number,
+  pageSize: number,
+): Promise<{ page: T; offset: number; limit: number; probeTotal: number; retried: boolean }> {
+  const probe = await readCount();
+  const probeTotal = safeTotal(getTotal(probe));
+  let window = latestFirstPage(probeTotal, pageSize);
+  let page = await readPage(window.offset, window.limit);
+  if (safeTotal(getTotal(page)) !== probeTotal) {
+    window = latestFirstPage(getTotal(page), pageSize);
+    page = await readPage(window.offset, window.limit);
+    return { page, offset: window.offset, limit: window.limit, probeTotal, retried: true };
+  }
+  return { page, offset: window.offset, limit: window.limit, probeTotal, retried: false };
+}

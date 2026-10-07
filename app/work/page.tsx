@@ -6,7 +6,7 @@ import { readContract } from "@/lib/genlayer";
 import { useWallet } from "@/components/WalletContext";
 import type { Engagement, EngagementPage } from "@/lib/types";
 import { WalletPanel } from "@/components/WalletPanel";
-import { isCurrentWalletPageRequest, latestFirstPage, olderPage, pageAtOffset } from "@/lib/pagination";
+import { isCurrentWalletPageRequest, latestPageWithRetry, olderPage, pageAtOffset } from "@/lib/pagination";
 import { WORK_SECTION_CONFIG, type WorkSectionKey, workSectionLabel } from "@/lib/work";
 
 type SectionState = { items: Engagement[]; offset: number; hasOlder: boolean; remainingCount: number; total: number; loading: boolean; error: string };
@@ -26,17 +26,25 @@ const statusText: Record<string, string> = {
   DECLINED: "Declined", CANCELLED: "Cancelled", EXPIRED: "Expired",
 };
 
-async function readSection(wallet: string, config: (typeof WORK_SECTION_CONFIG)[number], offset: number, limit = PAGE_SIZE) {
-  const page = await readContract<EngagementPage>(config.method, [wallet, offset, limit]);
+async function readSectionPage(page: EngagementPage, offset: number) {
   const items = await Promise.all((page.ids || []).map((id) => readContract<Engagement>("get_engagement", [String(id)])));
   const window = pageAtOffset(page.total || 0, offset, PAGE_SIZE);
   return { items: items.reverse(), offset: window.offset, hasOlder: window.hasOlder, remainingCount: window.remainingCount, total: page.total || 0 };
 }
 
+async function readSection(wallet: string, config: (typeof WORK_SECTION_CONFIG)[number], offset: number, limit = PAGE_SIZE) {
+  const page = await readContract<EngagementPage>(config.method, [wallet, offset, limit]);
+  return readSectionPage(page, offset);
+}
+
 async function readLatestSection(wallet: string, config: (typeof WORK_SECTION_CONFIG)[number]) {
-  const countPage = await readContract<EngagementPage>(config.method, [wallet, 0, 1]);
-  const window = latestFirstPage(countPage.total || 0, PAGE_SIZE);
-  return readSection(wallet, config, window.offset, window.limit);
+  const latest = await latestPageWithRetry(
+    () => readContract<EngagementPage>(config.method, [wallet, 0, 1]),
+    (offset, limit) => readContract<EngagementPage>(config.method, [wallet, offset, limit]),
+    (page) => page.total || 0,
+    PAGE_SIZE,
+  );
+  return readSectionPage(latest.page, latest.offset);
 }
 
 export default function WorkPage() {

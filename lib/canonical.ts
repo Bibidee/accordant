@@ -1,4 +1,4 @@
-import type { Attempt, Criterion, Engagement, EvidenceRef, ProductResult } from "@/lib/types";
+import type { Attempt, AttemptPage, Criterion, Engagement, EvidenceRef, ProductResult } from "@/lib/types";
 import { normalizeEvidenceUrl } from "@/lib/validation";
 
 export const CANONICAL_VERIFICATION_ERROR = "Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.";
@@ -120,17 +120,48 @@ export function expectedStatusForResult(result: ProductResult): Engagement["stat
   return result === "ACCEPTED" ? "COMPLETED" : "ACTIVE";
 }
 
-export function canonicalAttemptMatch(
-  engagement: Engagement,
-  attempt: Attempt | undefined,
-  expectedAttempt: number,
-  expectedDigest: string,
-  expectedEvidenceJson: string,
-): boolean {
-  if (!attempt) return false;
-  return attempt.number === expectedAttempt
-    && attempt.submission_digest === expectedDigest
-    && attempt.evidence_json === expectedEvidenceJson
-    && engagement.latest_result === attempt.result
-    && engagement.status === expectedStatusForResult(attempt.result);
+export function attemptIdentityMatches(attempt: Attempt, expectedDigest: string, expectedEvidenceJson: string): boolean {
+  return attempt.submission_digest === expectedDigest && attempt.evidence_json === expectedEvidenceJson;
+}
+
+export function attemptStateIsConsistent(engagement: Engagement, attempt: Attempt, isLatestAttempt = attempt.number === engagement.attempt_count): boolean {
+  if (attempt.result === "ACCEPTED") return isLatestAttempt && engagement.status === "COMPLETED" && engagement.latest_result === "ACCEPTED";
+  if (attempt.result !== "REVISION_REQUIRED" && attempt.result !== "INCONCLUSIVE") return false;
+  if (isLatestAttempt) return engagement.status === "ACTIVE" && engagement.latest_result === attempt.result;
+  return engagement.status === "ACTIVE" || engagement.status === "COMPLETED";
+}
+
+export function canonicalAttemptMatch(input: {
+  engagement: Engagement;
+  attempt: Attempt | undefined;
+  expectedDigest: string;
+  expectedEvidenceJson: string;
+}): boolean {
+  if (!input.attempt || !attemptIdentityMatches(input.attempt, input.expectedDigest, input.expectedEvidenceJson)) return false;
+  return attemptStateIsConsistent(input.engagement, input.attempt);
+}
+
+export async function findCanonicalAttemptAfterBaseline(input: {
+  baselineAttemptCount: number;
+  currentAttemptCount: number;
+  expectedDigest: string;
+  expectedEvidenceJson: string;
+  readPage: (offset: number, limit: number) => Promise<AttemptPage>;
+  pageSize?: number;
+}): Promise<Attempt | null> {
+  const pageSize = Math.max(1, Math.min(20, Math.floor(input.pageSize || 20)));
+  const baseline = Math.max(0, Math.floor(input.baselineAttemptCount));
+  const current = Math.max(0, Math.floor(input.currentAttemptCount));
+  if (current <= baseline) return null;
+  let offset = Math.floor(baseline / pageSize) * pageSize;
+  const matches: Attempt[] = [];
+  while (offset < current) {
+    const page = await input.readPage(offset, pageSize);
+    for (const attempt of page.items || []) {
+      if (attempt.number > baseline && attempt.number <= current && attemptIdentityMatches(attempt, input.expectedDigest, input.expectedEvidenceJson)) matches.push(attempt);
+    }
+    if (matches.length > 1 || !page.items?.length || !page.next_offset) break;
+    offset = page.next_offset;
+  }
+  return matches.length === 1 ? matches[0] : null;
 }
