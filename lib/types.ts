@@ -12,3 +12,5 @@ export type EvidenceKind = "VERSIONED_SOURCE" | "TRANSACTION" | "PUBLIC_ARTIFACT
 export type EvidenceRef = { criterion: number; kind: EvidenceKind; url: string; note?: string };
 export type TxPhase = "IDLE" | "AWAITING_SIGNATURE" | "SUBMITTED" | "CONSENSUS" | "ACCEPTED_PROVISIONAL" | "FINALIZED" | "UNDETERMINED" | "FAILED";
 export type Attempt = { number: number; submission_digest: string; evidence_json: string; result: Exclude<ProductResult, "">; decisions_json: string; submitted_at: number };
+export type EngagementPage = { ids: string[]; next_offset: number; total: number };
+export type AttemptPage = { items: Attempt[]; next_offset: number; total: number };

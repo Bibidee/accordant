@@ -17,3 +17,7 @@ coverage/
 .codex/
 .agents/
 .openai/
+.direct-mode-packages/
+.direct-mode-latest/
+.pytest_cache/
+artifacts/

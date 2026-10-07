@@ -8,8 +8,21 @@ export type Eip1193Provider = {
 
 declare global { interface Window { ethereum?: Eip1193Provider; } }
 
+const LOCAL_DISCONNECT_KEY = "accordant.local-disconnect.v1";
+
+function locallyDisconnected(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.sessionStorage.getItem(LOCAL_DISCONNECT_KEY) === "1";
+}
+
+export async function availableAccounts(): Promise<string[]> {
+  if (!window.ethereum || locallyDisconnected()) return [];
+  return (await window.ethereum.request({ method: "eth_accounts" })) as string[];
+}
+
 export async function requestAccounts(): Promise<string[]> {
   if (!window.ethereum) throw new Error("No injected wallet detected. Install or enable MetaMask, Rabby, or another EIP-1193 wallet.");
+  window.sessionStorage.removeItem(LOCAL_DISCONNECT_KEY);
   return (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
 }
 
@@ -31,5 +44,6 @@ export async function switchToStudionet(): Promise<void> {
 }
 
 export async function disconnectInApp(): Promise<void> {
+  if (typeof window !== "undefined") window.sessionStorage.setItem(LOCAL_DISCONNECT_KEY, "1");
   window.dispatchEvent(new CustomEvent("accordant:disconnect"));
 }

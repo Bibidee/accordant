@@ -24,6 +24,9 @@ export async function readContract<T>(functionName: string, args: unknown[] = []
 }
 export async function writeContract(functionName: string, args: unknown[], account: string, provider: Eip1193Provider): Promise<string> {
   if (!account) throw new Error("Connect the wallet before signing this action.");
+  const rawChain = await provider.request({ method: "eth_chainId" });
+  const chainId = typeof rawChain === "string" ? Number.parseInt(rawChain, 16) : Number(rawChain);
+  if (chainId !== CHAIN_ID) throw new Error(`Wrong network. Expected GenLayer Studionet ${CHAIN_ID}.`);
   const hash = await client(provider, account).writeContract({ address: address(CONTRACT_ADDRESS), functionName, args: args as never[], value: 0n });
   const transactionHash = String(hash);
   rememberTransaction({ hash: transactionHash, action: functionName, createdAt: Date.now(), phase: "SUBMITTED" });

@@ -16,6 +16,9 @@ MAX_EVIDENCE_TOTAL = 10
 MAX_URL_CHARS = 600
 MAX_FETCH_CHARS = 18000
 MAX_SUBMISSION_CHARS = 12000
+MAX_WALLET_INDEX = 100
+MAX_ATTEMPTS = 50
+MAX_PAGE_SIZE = 20
 
 DECISIONS = ("MET", "NOT_MET", "UNVERIFIABLE")
 RESULTS = ("ACCEPTED", "REVISION_REQUIRED", "INCONCLUSIVE")
@@ -100,27 +103,76 @@ class Accordant(gl.Contract):
         }, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+    def _is_private_ipv4(self, host: str) -> bool:
+        parts = host.split(".")
+        if len(parts) != 4 or not all(part.isdigit() for part in parts):
+            return False
+        values = [int(part) for part in parts]
+        if not all(0 <= value <= 255 for value in values):
+            return False
+        first, second = values[0], values[1]
+        return (
+            first == 0 or first == 10 or first == 127
+            or (first == 100 and 64 <= second <= 127)
+            or (first == 169 and second == 254)
+            or (first == 172 and 16 <= second <= 31)
+            or (first == 192 and second == 168)
+        )
+
+    def _is_private_ipv6(self, host: str) -> bool:
+        normalized = host.lower()
+        compact = normalized.replace(":", "")
+        if normalized in ("::", "::1") or compact in ("", "1"):
+            return True
+        first = normalized.split(":", 1)[0]
+        if re.match(r"^(fc|fd)", first) or re.match(r"^fe[89ab]", first):
+            return True
+        if normalized.startswith("::ffff:"):
+            mapped = normalized[len("::ffff:"):]
+            if "." in mapped and self._is_private_ipv4(mapped):
+                return True
+            hex_parts = mapped.split(":")
+            if len(hex_parts) == 2 and all(re.match(r"^[0-9a-f]{1,4}$", part) for part in hex_parts):
+                left, right = int(hex_parts[0], 16), int(hex_parts[1], 16)
+                return self._is_private_ipv4(f"{left >> 8}.{left & 255}.{right >> 8}.{right & 255}")
+        return False
+
     def _validate_evidence_url(self, raw: str) -> str:
         url = raw.strip()
-        if len(url) < 12 or len(url) > MAX_URL_CHARS:
+        if len(url) < 12 or len(url) > MAX_URL_CHARS or any(char.isspace() for char in url):
             raise gl.vm.UserError("Evidence URL length is invalid")
-        if not re.match(r"^https://[^/?#]+(?:[/?].*)?$", url, flags=re.IGNORECASE):
+        if not url.lower().startswith("https://"):
             raise gl.vm.UserError("Evidence must use HTTPS")
         if "#" in url or "@" in url:
             raise gl.vm.UserError("Evidence URL must not contain credentials or fragments")
-        host_match = re.match(r"^https://([^/?#]+)", url, flags=re.IGNORECASE)
-        host = host_match.group(1).lower().rstrip(".") if host_match else ""
-        private_host = (
-            host in ("localhost", "localhost.localdomain", "0.0.0.0", "::1")
+
+        authority = url[8:].split("/", 1)[0].split("?", 1)[0]
+        if not authority:
+            raise gl.vm.UserError("Evidence URL host is required")
+        if authority.startswith("["):
+            closing = authority.find("]")
+            if closing < 0:
+                raise gl.vm.UserError("Evidence URL IPv6 authority is malformed")
+            host = authority[1:closing].lower().rstrip(".")
+            port = authority[closing + 1:]
+            if port and (not port.startswith(":") or not port[1:].isdigit()):
+                raise gl.vm.UserError("Evidence URL port is malformed")
+        else:
+            if authority.count(":") > 1:
+                raise gl.vm.UserError("IPv6 evidence URLs must use brackets")
+            if ":" in authority:
+                host, port = authority.rsplit(":", 1)
+                if not port.isdigit():
+                    raise gl.vm.UserError("Evidence URL port is malformed")
+            else:
+                host = authority
+            host = host.lower().rstrip(".")
+
+        local_hostname = (
+            host in ("localhost", "localhost.localdomain")
             or host.endswith(".local") or host.endswith(".internal")
-            or host.startswith("127.") or host.startswith("10.")
-            or host.startswith("192.168.") or host.startswith("169.254.")
-            or host.startswith("[fc") or host.startswith("[fd") or host.startswith("[fe80")
         )
-        octets = host.split(".")
-        if len(octets) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in octets):
-            first, second = int(octets[0]), int(octets[1])
-            private_host = private_host or first == 0 or first == 127 or first == 10 or (first == 172 and 16 <= second <= 31) or (first == 192 and second == 168) or (first == 169 and second == 254)
+        private_host = local_hostname or self._is_private_ipv4(host) or self._is_private_ipv6(host)
         if private_host or not host:
             raise gl.vm.UserError("Private or local evidence URL is not allowed")
         return url
@@ -137,6 +189,10 @@ class Accordant(gl.Contract):
             raise gl.vm.UserError("Criterion text/required arrays must match")
         if len(criterion_texts) < MIN_CRITERIA or len(criterion_texts) > MAX_CRITERIA:
             raise gl.vm.UserError("Use 2 to 7 criteria")
+        requester_ids = self.wallet_ids[requester] if requester in self.wallet_ids else []
+        performer_ids = self.wallet_ids[perf] if perf in self.wallet_ids else []
+        if len(requester_ids) >= MAX_WALLET_INDEX or len(performer_ids) >= MAX_WALLET_INDEX:
+            raise gl.vm.UserError("A wallet engagement index is full")
         now = self._now()
         if int(proposal_deadline) <= now:
             raise gl.vm.UserError("Proposal deadline must be in the future")
@@ -171,10 +227,10 @@ class Accordant(gl.Contract):
             status="PROPOSED", accepted_at=u64(0), attempt_count=u32(0), latest_result="",
             completed_at=u64(0), created_at=u64(now),
         )
-        req_ids = self.wallet_ids[requester] if requester in self.wallet_ids else []
+        req_ids = requester_ids
         req_ids.append(engagement_id)
         self.wallet_ids[requester] = req_ids
-        perf_ids = self.wallet_ids[perf] if perf in self.wallet_ids else []
+        perf_ids = performer_ids
         perf_ids.append(engagement_id)
         self.wallet_ids[perf] = perf_ids
         return engagement_id
@@ -231,6 +287,8 @@ class Accordant(gl.Contract):
         now = self._now()
         if now > int(e.delivery_deadline):
             raise gl.vm.UserError("Delivery deadline has passed")
+        if int(e.attempt_count) >= MAX_ATTEMPTS:
+            raise gl.vm.UserError("The V1 attempt limit has been reached")
         if len(evidence_json) > MAX_SUBMISSION_CHARS:
             raise gl.vm.UserError("Evidence submission is too large")
 
@@ -284,7 +342,7 @@ class Accordant(gl.Contract):
                 for ref in by_index[idx]:
                     try:
                         res = gl.nondet.web.get(ref["url"])
-                        status_code = int(getattr(res, "status_code", 200))
+                        status_code = int(getattr(res, "status_code", getattr(res, "status", 200)))
                         if status_code != 200:
                             records.append({"kind": ref["kind"], "url": ref["url"], "available": False, "content": ""})
                             continue
@@ -332,6 +390,17 @@ Include every criterion exactly once and no extra indices."""
             except Exception:
                 normalized = [{"index": c["index"], "status": "UNVERIFIABLE", "explanation": "Validator evidence evaluation was unavailable or malformed."} for c in criteria]
 
+            # Missing, unavailable, and oversized evidence fail closed. A validator
+            # response cannot turn an empty/unreadable criterion into acceptance.
+            records_by_index = {entry["criterion"]: entry["records"] for entry in fetched}
+            for criterion in criteria:
+                records = records_by_index.get(criterion["index"], [])
+                if not records or not any(record.get("available", False) for record in records):
+                    for decision in normalized:
+                        if decision["index"] == criterion["index"]:
+                            decision["status"] = "UNVERIFIABLE"
+                            decision["explanation"] = "No bounded evidence was available to the validator."
+
             required = [c for c in criteria if c["required"]]
             status_by = {d["index"]: d["status"] for d in normalized}
             if any(status_by[c["index"]] == "NOT_MET" for c in required):
@@ -345,8 +414,12 @@ Include every criterion exactly once and no extra indices."""
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
                 return False
+            if not isinstance(leader_result.calldata, dict):
+                return False
             mine = assess()
             theirs = leader_result.calldata
+            if not isinstance(theirs.get("decisions"), list) or len(theirs.get("decisions", [])) != len(criteria):
+                return False
             mine_vector = [(int(x["index"]), str(x["status"])) for x in mine.get("decisions", [])]
             their_vector = [(int(x["index"]), str(x["status"])) for x in theirs.get("decisions", [])]
             return mine.get("submission_digest") == theirs.get("submission_digest") and mine.get("result") == theirs.get("result") and mine_vector == their_vector
@@ -354,6 +427,11 @@ Include every criterion exactly once and no extra indices."""
         result = gl.vm.run_nondet_unsafe(assess, validator_fn)
         product_result = str(result.get("result", "INCONCLUSIVE"))
         decisions = result.get("decisions", [])
+        expected_indices = list(range(len(criteria)))
+        actual_indices = [int(item.get("index", -1)) for item in decisions] if isinstance(decisions, list) else []
+        if not isinstance(decisions, list) or len(decisions) != len(criteria) or sorted(actual_indices) != expected_indices:
+            decisions = [{"index": c["index"], "status": "UNVERIFIABLE", "explanation": "Validator decision vector was incomplete or malformed."} for c in criteria]
+            product_result = "INCONCLUSIVE"
         if product_result not in RESULTS:
             product_result = "INCONCLUSIVE"
         self.seen_submissions[replay_key] = True
@@ -387,20 +465,40 @@ Include every criterion exactly once and no extra indices."""
         }
 
     @gl.public.view
-    def get_attempts(self, engagement_id: str) -> list[dict]:
+    def get_attempts(self, engagement_id: str, offset: u32, limit: u32) -> dict:
         self._get(engagement_id)
+        page_size = int(limit)
+        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise gl.vm.UserError("Page size must be 1 to 20")
         if engagement_id not in self.attempts:
-            return []
+            return {"items": [], "next_offset": 0, "total": 0}
         history = self.attempts[engagement_id]
-        return [{
-            "number": int(a.number), "submission_digest": a.submission_digest,
-            "evidence_json": a.evidence_json, "result": a.result,
-            "decisions_json": a.decisions_json, "submitted_at": int(a.submitted_at),
-        } for a in history]
+        start = int(offset)
+        total = len(history)
+        end = min(start + page_size, total)
+        items = []
+        for index in range(start, end):
+            a = history[index]
+            items.append({
+                "number": int(a.number), "submission_digest": a.submission_digest,
+                "evidence_json": a.evidence_json, "result": a.result,
+                "decisions_json": a.decisions_json, "submitted_at": int(a.submitted_at),
+            })
+        return {"items": items, "next_offset": end if end < total else 0, "total": total}
 
     @gl.public.view
-    def get_wallet_engagements(self, wallet: str) -> list[str]:
+    def get_wallet_engagements(self, wallet: str, offset: u32, limit: u32) -> dict:
         address = Address(wallet)
+        page_size = int(limit)
+        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise gl.vm.UserError("Page size must be 1 to 20")
         if address not in self.wallet_ids:
-            return []
-        return [str(x) for x in self.wallet_ids[address]]
+            return {"ids": [], "next_offset": 0, "total": 0}
+        start = int(offset)
+        ids = self.wallet_ids[address]
+        total = len(ids)
+        end = min(start + page_size, total)
+        page = []
+        for index in range(start, end):
+            page.append(str(ids[index]))
+        return {"ids": page, "next_offset": end if end < total else 0, "total": total}
