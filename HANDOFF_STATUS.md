@@ -1,8 +1,8 @@
 # Handoff Status
 
-The implementation and production handoff are complete for the browser/client and contract source integration. The app uses the pinned `genlayer-js` 1.1.8 adapter, injected EIP-1193 wallets, canonical contract reads, real write calls, transaction recovery, and the required App Router routes. The Accordant contract is deployed and finalized on Studionet, and the frontend is live on Vercel.
+The implementation and production handoff are complete for the browser/client and contract source integration. The app uses the pinned `genlayer-js` 1.1.8 adapter, injected EIP-1193 wallets, canonical contract reads, real write calls, transaction recovery, and the required App Router routes. The Accordant contract is deployed and finalized on Studionet, and the frontend is live on Vercel. A fresh Brave injected-wallet lifecycle remains the only release-evidence blocker because the Windows browser helper could not initialize in this environment.
 
-The production URL is https://accordant.vercel.app. Production route verification and the final production configuration are recorded in `docs/DEPLOYMENT.md`.
+The production URL is https://accordant.vercel.app. Production route verification and the final production configuration are recorded in `docs/DEPLOYMENT.md`; the current Vercel deployment is `87e9LM1SEghJoCpabhgZsCFfDGbb` from runtime source commit `5a8c51e36c5d5613fca5c24703fc923983a984d3`.
 
 The frontend concurrency hardening and expiry reconciliation remain in the production runtime lineage described in `docs/DEPLOYMENT.md`. Evidence submissions reconcile against the exact digest/evidence JSON in a bounded scan of attempts appended after the baseline, with fail-closed unique matching and correct historical/latest state semantics. Latest-first index reads tolerate one count/fetch race with a single recalculated retry. The current UI suite is 44/44, dependency audits report zero vulnerabilities, and the production deployment is https://vercel.com/bibidees-projects/accordant/9DypEwf3N9ZhKoBje2MaGG4WYjBQ.
 

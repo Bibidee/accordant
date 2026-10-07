@@ -49,9 +49,9 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 
 - Production URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
-- Production deployment: https://vercel.com/bibidees-projects/accordant/9DypEwf3N9ZhKoBje2MaGG4WYjBQ (`READY`).
-- Generated deployment URL: https://accordant-dy3l70ldu-bibidees-projects.vercel.app
-- Frontend source commit: `97561854b8642cbf0ae047ce22e7a288efbb4b72`.
+- Production deployment: https://vercel.com/bibidees-projects/accordant/87e9LM1SEghJoCpabhgZsCFfDGbb (`READY`).
+- Generated deployment URL: https://accordant-erkckfd3y-bibidees-projects.vercel.app
+- Production runtime source commit: `5a8c51e36c5d5613fca5c24703fc923983a984d3`.
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -72,7 +72,7 @@ The following checks passed locally:
 - Direct Mode — 9 contract tests passed against the pinned GenVM `v0.2.16` bundle, including 121-record role/pagination and malformed criterion cases. The compatibility shim is in `tests/direct/conftest.py`; the GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate; refer to the latest successful workflow for the current master verification.
+- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Latest successful master CI run at this verification: `37621041045`.
 
 The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The exact interactive mobile check passed in Edge at `390×844`: all nine routes returned HTTP 200, each had no horizontal overflow, and the Work navigation link changed the route to `/work`.
 
@@ -117,6 +117,13 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 ### Active delivery expired
 
 - Engagement `14`; create `0x7fdeebc11212f914df590638bf4150496f0aebf9fe7609b77663f40075ffa9df`; accept `0xcb2b58074f9bc4dd79e853f529ddc89c583bee6f71ad993a1c9c223c4f5a4da8`; close-expired `0x9124715bcbd443e7549d61715d394badca6297176937350e74f1389fb52628c8`; final `EXPIRED`, attempt 0.
+
+## Fresh Brave production lifecycle
+
+- Status: `NOT PERFORMED`.
+- Required environment: Brave with two injected wallets on the public production site, requester Wallet A and performer Wallet B.
+- Blocker: the Windows browser computer-use helper failed to initialize, so no fresh Brave wallet actions, hashes, engagement IDs, or immutable Version A/Version B evidence commits were created.
+- The historical CLI lifecycle above and the earlier Edge mobile check must not be counted as fresh Brave lifecycle proof.
 
 ## Provenance and remaining manual check
 
