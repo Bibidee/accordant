@@ -23,6 +23,7 @@ export default function NewWork() {
   const [hash, setHash] = useState("");
   const [error, setError] = useState("");
   const [canonical, setCanonical] = useState("");
+  const [createdEngagementId, setCreatedEngagementId] = useState("");
   const [signing, setSigning] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
   const pendingTerms = useRef<{ terms: FrozenTerms; preCreationRequesterCount: number; termsDigest: string } | null>(null);
@@ -96,6 +97,7 @@ export default function NewWork() {
       }
       if (matches.length !== 1) throw new Error(CANONICAL_VERIFICATION_ERROR);
       const found = matches[0];
+      setCreatedEngagementId(found.id);
       setCanonical("Canonical state verified: proposal " + found.id + " is PROPOSED on Studionet.");
       setSigning(false);
     } catch (e) {
@@ -110,7 +112,7 @@ export default function NewWork() {
     <p className="lede">Creating the proposal signs the exact frozen terms. The performer will review these same criteria before accepting.</p>
     <div className="composeSteps" aria-label="One-page engagement composer"><span className="composeStep active">ONE-PAGE COMPOSER</span><span className="composeStep active">LIVE AGREEMENT PREVIEW</span></div>
     {(hash || signing) && <TransactionNotice key={hash || "pending"} hash={hash} label="Create engagement" awaitingSignature={signing && !hash} onPhase={onPhase} onFinalized={confirmCanonicalCreation} />}
-    {canonical && <p className="success" role="status">{canonical}</p>}
+    {canonical && <div className="row"><p className="success" role="status">{canonical}</p>{createdEngagementId && <Link className="button lemon" href={"/work/" + createdEngagementId}>Open agreement #{createdEngagementId}</Link>}</div>}
     <div className="composeLayout">
       <form className="form" onSubmit={submit}>
         <label className="field">Performer wallet<span className="muted">The designated wallet that can accept and submit evidence.</span><input value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="0x…" autoComplete="off" /></label>
