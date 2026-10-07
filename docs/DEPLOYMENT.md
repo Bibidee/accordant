@@ -49,9 +49,9 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 
 - Production URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
-- Production deployment: https://vercel.com/bibidees-projects/accordant/8WHPMXb2kpMj4MdCTZgizv3KZGox (`READY`).
-- Generated deployment URL: https://accordant-eeopl31y3-bibidees-projects.vercel.app
-- Frontend source commit: `738f1ef11ebb7b56793cfbd6fd8d02663392648a`.
+- Production deployment: https://vercel.com/bibidees-projects/accordant/ATat5t5WnE55iG8ojEi7rsaiNnKZ (`READY`).
+- Generated deployment URL: https://accordant-98j443kv1-bibidees-projects.vercel.app
+- Frontend source commit: `022fc21c82e467bdfb62d95d19a426102f5cf7da`.
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -65,13 +65,15 @@ The following checks passed locally:
 - `npm run test` — 25 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, pagination-count races, terminal transaction branches, and finalized receipt refresh.
 - `npm run build -- --webpack` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
-- Full `npm audit --audit-level=high` — 10 development-tree vulnerabilities (3 moderate, 5 high, 2 critical) remain in Vitest/tinypool, braces through Next ESLint tooling, and dockerode’s nested uuid. No `npm audit fix --force` was applied because the suggested fixes include breaking dependency changes.
+- Full `npm audit --audit-level=high` — `found 0 vulnerabilities` after isolating the deploy CLI, updating Vitest, and replacing the vulnerable Next ESLint bundle with ESLint 9-compatible maintained packages.
+- Fresh `npm ci` — completed successfully with no Windows cleanup/EPERM warning.
+- GitHub Actions uses Node 24-compatible `checkout@v7`, `setup-node@v7`, and `setup-python@v7` actions.
 - `git diff --check`.
 - Direct Mode — 9 contract tests passed against the pinned GenVM `v0.2.16` bundle, including 121-record role/pagination and malformed criterion cases. The compatibility shim is in `tests/direct/conftest.py`; the GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
 
-The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The production build has responsive breakpoints and no horizontal overflow in the bounded desktop layout checks. The Windows browser automation helper failed to initialize during this pass, so an exact interactive `390×844` viewport check was not performed and is explicitly not claimed.
+The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The exact interactive mobile check passed in Edge at `390×844`: all nine routes returned HTTP 200, each had no horizontal overflow, and the Work navigation link changed the route to `/work`.
 
 ## Live two-wallet lifecycle
 
@@ -117,6 +119,6 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 ## Provenance and remaining manual check
 
-The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, and lifecycle-runner cleanup; the concurrent-attempt and page-race frontend fix is in commit `738f1ef11ebb7b56793cfbd6fd8d02663392648a`; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
+The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, lifecycle-runner cleanup, dependency remediation, and CI runtime hardening; the concurrent-attempt and page-race frontend fix is in commit `738f1ef11ebb7b56793cfbd6fd8d02663392648a`, and the final dependency/CI remediation is in `022fc21c82e467bdfb62d95d19a426102f5cf7da`; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
 
-The only unperformed verification is the exact interactive `390x844` browser viewport check because the Windows browser automation helper failed to initialize on two attempts. No contract or lifecycle evidence is being fabricated for that gap.
+The `Protect master` repository ruleset is active (ID `24645498`) for `refs/heads/master`, blocking deletion and non-fast-forward updates and requiring Web, Direct Mode, production audit, and Required CI gate checks. GitHub shows all current commits authored and committed by Bibidee; no Codex-authored history rewrite was necessary.
