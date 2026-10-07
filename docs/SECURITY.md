@@ -38,8 +38,11 @@ Mitigation: the contract and frontend reject the zero address, enforce HTTPS evi
 ### Semantic replay and evidence ordering
 Mitigation: replay identity canonicalizes criterion/kind/normalized URL tuples, ignores non-semantic notes, and sorts evidence before hashing so equivalent submissions cannot bypass the retry guard through ordering or note changes.
 
-### Unbounded history growth
-Mitigation: requester and performer indexes are append-only but page-addressable. Reads use explicit offsets and limits instead of a fixed wallet-entry cap, while contract writes preserve the canonical count.
+### Unsolicited proposal availability and history growth
+Mitigation: creation appends to a requester-created index and a separate performer-incoming index. Acceptance alone appends to the performer-accepted index, so unsolicited proposals cannot pollute or enlarge accepted-work reads. All three indexes are append-only and page-addressable with explicit offsets and limits; there is no arbitrary lifetime cap.
+
+### Bounded evidence processing
+Mitigation: `MAX_FETCH_CHARS` is a decoded-content/evaluation bound applied after the supported web response is obtained. It is not documented as a transport-level download limit; unavailable, malformed, or oversized decoded content fails closed to `UNVERIFIABLE`.
 
 ### Signing and transaction lifecycle
 Mitigation: the frontend uses one pending guard per action, separates protocol transaction states from product outcomes, exposes transaction hashes only after submission, and polls canonical contract state after finalization.

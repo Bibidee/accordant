@@ -2,6 +2,6 @@
 
 The implementation and production handoff are complete for the browser/client and contract source integration. The app uses the pinned `genlayer-js` 1.1.8 adapter, injected EIP-1193 wallets, canonical contract reads, real write calls, transaction recovery, and the required App Router routes. The Accordant contract is deployed and finalized on Studionet, and the frontend is live on Vercel.
 
-The production URL is https://accordant.vercel.app. Desktop/mobile route verification and the final production configuration are recorded in `docs/DEPLOYMENT.md`.
+The production URL is https://accordant.vercel.app. Production route verification and the final production configuration are recorded in `docs/DEPLOYMENT.md`.
 
-Studionet deployment used repository-local GenLayer CLI 0.39.1 and finalized successfully. Contract: `0x838D981244760a4A70c315311908347DEc953e8B`. Deployment transaction: `0x8665e86628f5d5bf32e2fa86cddef7e38766bfef99da6c9ab54d7e87d9ca75dd`. The live two-wallet lifecycle suite and production browser verification are recorded in `docs/DEPLOYMENT.md`.
+The hardened contract was deployed fresh with repository-local GenLayer CLI 0.39.1 and finalized successfully. Contract: `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`. Deployment transaction: `0x50d46f35e463bfe6521f3d4c235424285258d6de535acc978b3431c54ecf887c`. The live two-wallet lifecycle suite and production verification are recorded in `docs/DEPLOYMENT.md`.

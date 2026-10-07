@@ -78,11 +78,12 @@ async function allIds(client, functionName, wallet) {
 }
 
 async function walletIds(wallet) {
-  const [requester, performer] = await Promise.all([
+  const [requester, performer, incoming] = await Promise.all([
     allIds(aliceClient, "get_requester_engagements", wallet),
     allIds(aliceClient, "get_performer_engagements", wallet),
+    allIds(aliceClient, "get_performer_incoming", wallet),
   ]);
-  return [...new Set([...requester, ...performer])];
+  return [...new Set([...requester, ...performer, ...incoming])];
 }
 
 async function newEngagementId(beforeIds) {
@@ -174,11 +175,11 @@ const expiredResult = { lifecycle: "proposal-expired", id: expired.id, create: e
 console.log(JSON.stringify(expiredResult));
 if (expiredReadback.status !== "EXPIRED") throw new Error("Proposal expiry lifecycle readback failed");
 
-const activeExpired = await createProposal("Live active delivery expiry lifecycle", 60, 20);
+const activeExpired = await createProposal("Live active delivery expiry lifecycle", 180, 210);
 const activeAcceptedTx = await write(bobClient, "accept_engagement", [activeExpired.id]);
 const activeBeforeExpiry = await read(aliceClient, "get_engagement", [activeExpired.id]);
 if (activeBeforeExpiry.status !== "ACTIVE") throw new Error("Active delivery expiry did not reach ACTIVE");
-await sleep(25000);
+await sleep(215000);
 const activeExpiredTx = await write(aliceClient, "close_expired", [activeExpired.id]);
 const activeExpiredReadback = await read(aliceClient, "get_engagement", [activeExpired.id]);
 const activeExpiredResult = { lifecycle: "active-delivery-expired", id: activeExpired.id, create: activeExpired.create, accept: activeAcceptedTx.hash, expire: activeExpiredTx.hash, status: activeExpiredReadback.status, productResult: activeExpiredReadback.latest_result, attemptCount: activeExpiredReadback.attempt_count };

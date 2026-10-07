@@ -1,30 +1,29 @@
 # Accordant hardening audit
 
-Audit baseline: `4e863c534254d402b0f593e66fcf8646518521ed` (2026-10-06).
+Audit baseline: `4e863c534254d402b0f593e66fcf8646518521ed` (2026-10-06). Remediation pass: `48281c7df1af71086017c7425c0315cf195f2510` and subsequent documentation/lifecycle evidence updates.
 
-This is the pre-change audit record for the technical and visual reconstruction pass. It records findings against the current repository before contract semantics are changed.
+The baseline findings below are retained as historical context. The current status is recorded in the resolved findings that follow; they are not open release blockers unless explicitly marked remaining.
 
 ## Contract findings
 
-- Evidence URL validation inspects raw authority text with string prefixes. It does not reliably separate credentials, brackets, ports, IPv6 literals, or normalized hostnames.
-- Wallet engagement IDs are appended to one unbounded index for both requester and performer. A requester can create unsolicited performer entries without a bound.
-- Attempt history is returned as one unbounded array and has no V1 cap or pagination.
-- The shared frontend write helper does not verify chain `61999`; individual pages perform inconsistent checks.
-- Product-result derivation returns `ACCEPTED` when a required criterion is missing from the decision vector.
+- Evidence URL parsing, private/numeric host rejection, credentials/fragments, IPv6 brackets, and port bounds are enforced in contract and frontend validation.
+- Requester-created, performer-incoming, and performer-accepted indexes are separate and page-addressable. Unsolicited proposals never enter accepted performer work.
+- Attempt history is capped at 50 attempts and exposed through bounded pages.
+- Writes verify Studionet chain `61999`; reads and writes use the configured deployed contract.
+- Malformed or incomplete validator vectors fail closed, and required criterion status determines product-result precedence.
 
 ## Frontend findings
 
-- The current shell is a generic card/list treatment with hidden mobile navigation and no agreement-board mechanism.
-- Wallet disconnect only emits an event; the injected provider remains readable, so the app can immediately appear connected again.
-- The attempt-review route calls state mutation during render when stored JSON is malformed.
-- Transaction UI starts at submitted state and does not provide a reusable, explicit signature → consensus → finality → canonical-readback model.
-- Work and attempt-history pages load all IDs/history in one request and use unbounded `Promise.all` reads.
-- Frontend evidence URL validation is not a parser-based parity implementation of the contract rule.
+- The shell exposes role-specific work sections, public reads, and responsive route layouts.
+- Work pages load one bounded page per role and require explicit `Load more`; they do not enumerate a wallet’s complete history.
+- Transaction UI has separate success and failure rails and a distinct canonical-state-verified step.
+- Manual receipt refresh and polling share the same finalized/canonical readback path.
+- Frontend evidence URL validation remains aligned with the contract boundary.
 
 ## Verification findings
 
-- `tests/direct/test_accordant.py` contains only one local invariant and does not exercise the Accordant contract.
-- There is no GitHub Actions workflow.
-- The deployed source provenance must be recomputed after any contract change; the existing Studionet address cannot be reused for a changed contract.
+- `tests/direct/test_accordant.py` exercises the production contract source in Direct Mode, including 121-record pagination, role integrity, malformed criterion inputs, and lifecycle outcomes.
+- GitHub Actions remains split into Web, Direct Mode, Production dependency audit, and Required CI gate jobs.
+- The changed contract was freshly deployed at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E` from source commit `48281c7df1af71086017c7425c0315cf195f2510` and source SHA `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`.
 
-The next changes deliberately treat contract modifications as a new deployment requirement. Existing production evidence remains attached to the old address until a new source hash, deployment receipt, and live lifecycle suite are recorded.
+The changed-contract deployment requirement is satisfied. The previous address `0x838D981244760a4A70c315311908347DEc953e8B` is superseded and is not a current production binding.
