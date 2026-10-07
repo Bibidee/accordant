@@ -8,7 +8,7 @@ This file records facts observed while building, deploying, and verifying the cu
 - Chain ID: `61999`
 - RPC: `https://studio.genlayer.com/api`
 - Explorer: `https://explorer-studio.genlayer.com`
-- Repository-local CLI: `0.39.1`
+- CLI package used for future deploys: `0.39.2` via `npm run cli`
 - `genlayer-js`: `1.1.8`
 
 ## Implementation
@@ -40,7 +40,7 @@ This file records facts observed while building, deploying, and verifying the cu
 The deployment command was:
 
 ```text
-node node_modules/genlayer/dist/index.js deploy --contract contracts/accordant.py --rpc https://studio.genlayer.com/api
+npm run cli -- deploy --contract contracts/accordant.py --rpc https://studio.genlayer.com/api
 ```
 
 The unlocked `fresh-alice` account signed the deployment. The final receipt was queried again after deployment.

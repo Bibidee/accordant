@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.mjs",
-    "cli": "genlayer",
+    "cli": "npx --yes genlayer@0.39.2",
     "network:check": "node scripts/network-check.mjs",
     "preflight": "npm run network:check && npm run typecheck && npm run lint && npm run test && npm run build"
   },
@@ -22,16 +22,17 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.1",
+    "@eslint/js": "9.39.5",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "16.3.0",
     "@types/node": "24.5.2",
     "@types/react": "19.1.16",
     "@types/react-dom": "19.1.9",
     "eslint": "9.36.0",
-    "eslint-config-next": "^16.4.0",
-    "genlayer": "0.39.1",
+    "globals": "16.5.0",
     "jsdom": "27.0.0",
+    "typescript-eslint": "8.71.1",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "4.1.11"
   }
 }
