@@ -120,12 +120,22 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 ## Fresh Brave production lifecycle
 
-- Status: `NOT PERFORMED`.
-- Required environment: Brave with two injected wallets on the public production site, requester Wallet A and performer Wallet B.
-- Blocker: the Windows browser computer-use helper failed to initialize, so no fresh Brave wallet actions, hashes, engagement IDs, or immutable Version A/Version B evidence commits were created.
-- The historical CLI lifecycle above and the earlier Edge mobile check must not be counted as fresh Brave lifecycle proof.
+- Status: `COMPLETED` on 2026-10-07 using the public production site in Brave.
+- Environment: two injected wallets on GenLayer Studionet `61999`; Wallet A was the requester and Wallet B was the performer.
+- Wallet A / requester: `0xff203bb65942f50cb81a8af98c5f5bd9d8a79b54`.
+- Wallet B / performer: `0x3c4c71D8C449471acC31AD59187231001856655C`.
+- Agreement `15`, titled `Accordant Brave lifecycle`, was created with two required criteria: the production app must be reachable, and the public GitHub source repository must be reachable.
+- Create transaction: `0x2bb27a573d566dbc9e893e85921df2b5e887f3405902a8e89bd73f38fa24e51a`.
+- Accept transaction: `0xde92806357e7f29ed410ac53f90bdf2bf99a977b8e55cf6db8604ff859d2be46`.
+- Evidence attempt 1 intentionally used invalid sources and finalized `INCONCLUSIVE`: `0x9a64c33d10a7a6f31c91e48a91d0f388ee2abb81c464ef245bdabae92ab0ad91`.
+- Evidence attempt 2 used the live deployment and repository homepage and finalized `INCONCLUSIVE` because the validator could not read a bounded source reference: `0x1bab62dbdfee89d18f1b93944bfae79fe1709e1f5f4d846598050ff56b664190`.
+- Evidence attempt 3 used `https://accordant.vercel.app/account` and the versioned raw source `https://raw.githubusercontent.com/Bibidee/accordant/master/docs/DEPLOYMENT.md`; it finalized and was canonically verified as `ACCEPTED`: `0xa4461b309b08ab94018aeb4f83541e262933fdade753ca65ca4d676c5281da60`.
+- Final review matrix: both criteria `MET`; agreement state `COMPLETED`; append-only ledger: 3 attempts, latest result `ACCEPTED`.
+- Brave dashboard verification showed Agreement `15` in both incoming history and accepted performer work after canonical reconciliation.
 
-## Provenance and remaining manual check
+This records the fresh Brave injected-wallet lifecycle separately from the historical CLI lifecycle above. The earlier exact interactive mobile check remains recorded for Edge at `390×844`.
+
+## Provenance and verification notes
 
 The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, lifecycle-runner cleanup, dependency remediation, and CI runtime hardening; the concurrent-attempt and page-race frontend fix is in commit `738f1ef11ebb7b56793cfbd6fd8d02663392648a`, and the final dependency/CI remediation is in `022fc21c82e467bdfb62d95d19a426102f5cf7da`; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
 
