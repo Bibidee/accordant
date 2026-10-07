@@ -171,10 +171,12 @@ main { width: min(1320px, 100%); margin: 0 auto; padding: 58px clamp(18px, 5vw, 
 .context { position: sticky; top: 100px; }
 .context p { padding-bottom: 14px; border-bottom: 1px solid var(--line); line-height: 1.45; }
 .txNotice { margin: 20px 0; border-left: 5px solid var(--blue); }
-.txRail { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 16px 0; }
+.txRail { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 16px 0; }
 .txStage { min-height: 48px; padding: 8px; border-top: 3px solid var(--line); color: var(--graphite); font-size: 10px; font-weight: 900; }
 .txStage.done { border-color: var(--success); color: var(--success); }
 .txStage.current { border-color: var(--lemon); background: var(--soft-lemon); color: var(--ink); }
+.txTerminal { margin: 16px 0; padding: 14px; border: 1px solid #eab3ac; border-left: 5px solid var(--revision); background: #fff0ed; color: var(--revision); }
+.txTerminal p { margin: 6px 0 0; line-height: 1.45; }
 .receiptMeta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .acceptanceLine { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; margin: 28px 0 18px; }
 .acceptanceNode { padding: 10px 13px; border: 1px solid var(--ink); background: var(--soft-lemon); font-size: 12px; font-weight: 900; }

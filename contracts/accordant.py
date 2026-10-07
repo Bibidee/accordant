@@ -73,9 +73,11 @@ class Accordant(gl.Contract):
     attempts: TreeMap[str, DynArray[Attempt]]
     seen_submissions: TreeMap[str, bool]
     requester_counts: TreeMap[Address, u64]
-    performer_counts: TreeMap[Address, u64]
+    performer_incoming_counts: TreeMap[Address, u64]
+    performer_accepted_counts: TreeMap[Address, u64]
     requester_slots: TreeMap[str, str]
-    performer_slots: TreeMap[str, str]
+    performer_incoming_slots: TreeMap[str, str]
+    performer_accepted_slots: TreeMap[str, str]
 
     def __init__(self):
         self.next_id = u256(1)
@@ -98,9 +100,17 @@ class Accordant(gl.Contract):
     def _wallet_page_key(self, role: str, wallet: Address, page: int) -> str:
         return f"{role}:{wallet.as_hex.lower()}:{page}"
 
+    def _index_maps(self, role: str):
+        if role == "requester":
+            return self.requester_counts, self.requester_slots
+        if role == "performer_incoming":
+            return self.performer_incoming_counts, self.performer_incoming_slots
+        if role == "performer_accepted":
+            return self.performer_accepted_counts, self.performer_accepted_slots
+        raise gl.vm.UserError("Unknown wallet index")
+
     def _append_wallet_id(self, role: str, wallet: Address, engagement_id: str) -> None:
-        counts = self.requester_counts if role == "requester" else self.performer_counts
-        slots = self.requester_slots if role == "requester" else self.performer_slots
+        counts, slots = self._index_maps(role)
         count = int(counts.get(wallet, u64(0)))
         page_number = count // INDEX_PAGE_SIZE
         slot_key = f"{self._wallet_page_key(role, wallet, page_number)}:{count % INDEX_PAGE_SIZE}"
@@ -108,8 +118,7 @@ class Accordant(gl.Contract):
         counts[wallet] = u64(count + 1)
 
     def _read_wallet_page(self, role: str, wallet: Address, offset: int, limit: int) -> dict:
-        counts = self.requester_counts if role == "requester" else self.performer_counts
-        slots = self.requester_slots if role == "requester" else self.performer_slots
+        counts, slots = self._index_maps(role)
         total = int(counts.get(wallet, u64(0)))
         start = int(offset)
         end = min(start + int(limit), total)
@@ -316,7 +325,7 @@ class Accordant(gl.Contract):
             completed_at=u64(0), created_at=u64(now),
         )
         self._append_wallet_id("requester", requester, engagement_id)
-        self._append_wallet_id("performer", perf, engagement_id)
+        self._append_wallet_id("performer_incoming", perf, engagement_id)
         return engagement_id
 
     @gl.public.write
@@ -331,6 +340,7 @@ class Accordant(gl.Contract):
             raise gl.vm.UserError("Proposal deadline has passed")
         e.status = "ACTIVE"
         e.accepted_at = u64(now)
+        self._append_wallet_id("performer_accepted", e.performer, engagement_id)
 
     @gl.public.write
     def decline_engagement(self, engagement_id: str) -> None:
@@ -395,7 +405,10 @@ class Accordant(gl.Contract):
         for item in submitted:
             if not isinstance(item, dict):
                 raise gl.vm.UserError("Each evidence item must be an object")
-            idx = int(item.get("criterion", -1))
+            raw_index = item.get("criterion")
+            if isinstance(raw_index, bool) or not isinstance(raw_index, int):
+                raise gl.vm.UserError("Evidence criterion index is invalid")
+            idx = int(raw_index)
             if idx < 0 or idx >= len(criteria):
                 raise gl.vm.UserError("Evidence references an unknown criterion")
             kind = str(item.get("kind", "")).strip().upper()
@@ -519,7 +532,10 @@ Include every criterion exactly once and no extra indices."""
         product_result = str(result.get("result", "INCONCLUSIVE"))
         decisions = result.get("decisions", [])
         expected_indices = list(range(len(criteria)))
-        actual_indices = [int(item.get("index", -1)) for item in decisions] if isinstance(decisions, list) else []
+        try:
+            actual_indices = [int(item.get("index", -1)) for item in decisions] if isinstance(decisions, list) else []
+        except Exception:
+            actual_indices = []
         if not isinstance(decisions, list) or len(decisions) != len(criteria) or sorted(actual_indices) != expected_indices:
             decisions = [{"index": c["index"], "status": "UNVERIFIABLE", "explanation": "Validator decision vector was incomplete or malformed."} for c in criteria]
             product_result = "INCONCLUSIVE"
@@ -584,10 +600,12 @@ Include every criterion exactly once and no extra indices."""
         if page_size < 1 or page_size > MAX_PAGE_SIZE:
             raise gl.vm.UserError("Page size must be 1 to 20")
         requester = self._read_wallet_page("requester", address, int(offset), page_size)
-        performer = self._read_wallet_page("performer", address, int(offset), page_size)
+        incoming = self._read_wallet_page("performer_incoming", address, int(offset), page_size)
+        accepted = self._read_wallet_page("performer_accepted", address, int(offset), page_size)
         return {
             "ids": requester["ids"], "next_offset": requester["next_offset"], "total": requester["total"],
-            "incoming_ids": performer["ids"], "incoming_next_offset": performer["next_offset"], "incoming_total": performer["total"],
+            "incoming_ids": incoming["ids"], "incoming_next_offset": incoming["next_offset"], "incoming_total": incoming["total"],
+            "performer_ids": accepted["ids"], "performer_next_offset": accepted["next_offset"], "performer_total": accepted["total"],
         }
 
     @gl.public.view
@@ -602,4 +620,11 @@ Include every criterion exactly once and no extra indices."""
         page_size = int(limit)
         if page_size < 1 or page_size > MAX_PAGE_SIZE:
             raise gl.vm.UserError("Page size must be 1 to 20")
-        return self._read_wallet_page("performer", Address(wallet), int(offset), page_size)
+        return self._read_wallet_page("performer_accepted", Address(wallet), int(offset), page_size)
+
+    @gl.public.view
+    def get_performer_incoming(self, wallet: str, offset: u32, limit: u32) -> dict:
+        page_size = int(limit)
+        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise gl.vm.UserError("Page size must be 1 to 20")
+        return self._read_wallet_page("performer_incoming", Address(wallet), int(offset), page_size)

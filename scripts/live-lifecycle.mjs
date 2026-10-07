@@ -122,8 +122,8 @@ async function createUntil(title, summary, criteria, refs, expected) {
   throw new Error(`${title}: did not reach ${expected} after three fresh two-wallet probes`);
 }
 
-async function createProposal(title, proposalSeconds = 3600) {
-  const [proposal, delivery] = deadlines(proposalSeconds, proposalSeconds + 3600);
+async function createProposal(title, proposalSeconds = 3600, deliverySeconds = proposalSeconds + 3600) {
+  const [proposal, delivery] = deadlines(proposalSeconds, deliverySeconds);
   const beforeIds = new Set(await walletIds(alice.address));
   const made = await write(aliceClient, "create_engagement", [bob.address, title, "A lifecycle transition probe with public readback.", ["The transition is recorded in the public engagement state.", "The transition remains bound to the frozen terms."], [true, true], proposal, delivery]);
   return { id: await newEngagementId(beforeIds), create: made.hash, proposal };
@@ -155,20 +155,37 @@ await create("Live inconclusive lifecycle", "One source is intentionally unavail
 const declined = await createProposal("Live decline lifecycle");
 const declinedTx = await write(bobClient, "decline_engagement", [declined.id]);
 const declinedReadback = await read(aliceClient, "get_engagement", [declined.id]);
-console.log(JSON.stringify({ lifecycle: "declined", id: declined.id, tx: declinedTx.hash, status: declinedReadback.status }));
+const declinedResult = { lifecycle: "declined", id: declined.id, create: declined.create, decline: declinedTx.hash, status: declinedReadback.status, productResult: declinedReadback.latest_result, attemptCount: declinedReadback.attempt_count };
+console.log(JSON.stringify(declinedResult));
 if (declinedReadback.status !== "DECLINED") throw new Error("Decline lifecycle readback failed");
 
 const canceled = await createProposal("Live cancel lifecycle");
 const canceledTx = await write(aliceClient, "cancel_proposal", [canceled.id]);
 const canceledReadback = await read(aliceClient, "get_engagement", [canceled.id]);
-console.log(JSON.stringify({ lifecycle: "canceled", id: canceled.id, tx: canceledTx.hash, status: canceledReadback.status }));
+const canceledResult = { lifecycle: "canceled", id: canceled.id, create: canceled.create, cancel: canceledTx.hash, status: canceledReadback.status, productResult: canceledReadback.latest_result, attemptCount: canceledReadback.attempt_count };
+console.log(JSON.stringify(canceledResult));
 if (canceledReadback.status !== "CANCELLED") throw new Error("Cancel lifecycle readback failed");
 
-const expired = await createProposal("Live expiry lifecycle", 20);
+const expired = await createProposal("Live proposal expiry lifecycle", 20, 60);
 await sleep(25000);
 const expiredTx = await write(aliceClient, "close_expired", [expired.id]);
 const expiredReadback = await read(aliceClient, "get_engagement", [expired.id]);
-console.log(JSON.stringify({ lifecycle: "expired", id: expired.id, tx: expiredTx.hash, status: expiredReadback.status }));
-if (expiredReadback.status !== "EXPIRED") throw new Error("Expiry lifecycle readback failed");
+const expiredResult = { lifecycle: "proposal-expired", id: expired.id, create: expired.create, expire: expiredTx.hash, status: expiredReadback.status, productResult: expiredReadback.latest_result, attemptCount: expiredReadback.attempt_count };
+console.log(JSON.stringify(expiredResult));
+if (expiredReadback.status !== "EXPIRED") throw new Error("Proposal expiry lifecycle readback failed");
 
-console.log(JSON.stringify({ contract: address, alice: alice.address, bob: bob.address, lifecycle: "all-passed", accepted: accepted.id }));
+const activeExpired = await createProposal("Live active delivery expiry lifecycle", 60, 20);
+const activeAcceptedTx = await write(bobClient, "accept_engagement", [activeExpired.id]);
+const activeBeforeExpiry = await read(aliceClient, "get_engagement", [activeExpired.id]);
+if (activeBeforeExpiry.status !== "ACTIVE") throw new Error("Active delivery expiry did not reach ACTIVE");
+await sleep(25000);
+const activeExpiredTx = await write(aliceClient, "close_expired", [activeExpired.id]);
+const activeExpiredReadback = await read(aliceClient, "get_engagement", [activeExpired.id]);
+const activeExpiredResult = { lifecycle: "active-delivery-expired", id: activeExpired.id, create: activeExpired.create, accept: activeAcceptedTx.hash, expire: activeExpiredTx.hash, status: activeExpiredReadback.status, productResult: activeExpiredReadback.latest_result, attemptCount: activeExpiredReadback.attempt_count };
+console.log(JSON.stringify(activeExpiredResult));
+if (activeExpiredReadback.status !== "EXPIRED") throw new Error("Active delivery expiry lifecycle readback failed");
+
+const acceptedIndex = await read(bobClient, "get_performer_engagements", [bob.address, 0, 20]);
+const incomingIndex = await read(bobClient, "get_performer_incoming", [bob.address, 0, 20]);
+if (!(acceptedIndex.ids || []).map(String).includes(String(accepted.id)) || !(incomingIndex.ids || []).map(String).includes(String(activeExpired.id))) throw new Error("Role-specific performer indexes did not contain the expected canonical records");
+console.log(JSON.stringify({ contract: address, alice: alice.address, bob: bob.address, lifecycle: "all-passed", accepted: accepted.id, acceptedWorkCount: acceptedIndex.total, incomingCount: incomingIndex.total }));

@@ -5,34 +5,94 @@ import { EXPLORER_URL } from "@/lib/constants";
 import { getTransaction, monitorTransaction, type TransactionRecord } from "@/lib/genlayer";
 import type { TxPhase } from "@/lib/types";
 
-export function TransactionNotice({ hash, label, awaitingSignature = false, onFinalized, onPhase }: { hash: string; label: string; awaitingSignature?: boolean; onFinalized?: () => void; onPhase?: (phase: TxPhase) => void }) {
+type Props = {
+  hash: string;
+  label: string;
+  awaitingSignature?: boolean;
+  onFinalized?: () => Promise<void> | void;
+  onPhase?: (phase: TxPhase) => void;
+};
+
+type RailKey = TxPhase | "CANONICAL_VERIFIED";
+const successStages: Array<{ key: RailKey; label: string }> = [
+  { key: "AWAITING_SIGNATURE", label: "Awaiting signature" },
+  { key: "SUBMITTED", label: "Submitted" },
+  { key: "CONSENSUS", label: "Consensus" },
+  { key: "ACCEPTED_PROVISIONAL", label: "Accepted provisional" },
+  { key: "FINALIZED", label: "Finalized" },
+  { key: "CANONICAL_VERIFIED", label: "Canonical state verified" },
+];
+const failurePhases = new Set<TxPhase>(["FAILED", "CANCELED", "UNDETERMINED", "MONITORING_STOPPED"]);
+
+function failureMessage(phase: TxPhase) {
+  if (phase === "CANCELED") return "The protocol canceled this transaction. No product state was inferred.";
+  if (phase === "FAILED") return "Execution failed after protocol finalization. No successful product state was inferred.";
+  if (phase === "UNDETERMINED") return "Consensus was not reached. No milestone result was recorded. Reconcile this exact hash; do not rebroadcast automatically.";
+  return "Monitoring stopped before a terminal result. Reconcile this exact hash before retrying.";
+}
+
+export function TransactionNotice({ hash, label, onFinalized, onPhase }: Props) {
   const [record, setRecord] = useState<TransactionRecord | null>(null);
+  const [canonicalVerified, setCanonicalVerified] = useState(false);
+  const [canonicalPending, setCanonicalPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function publish(next: TransactionRecord) {
+    setRecord(next);
+    onPhase?.(next.phase);
+  }
+
+  async function publishTerminal(next: TransactionRecord) {
+    publish(next);
+    if (next.phase !== "FINALIZED") return;
+    if (!onFinalized) {
+      setCanonicalVerified(false);
+      return;
+    }
+    setCanonicalPending(true);
+    setCanonicalVerified(false);
+    try {
+      await onFinalized();
+      setCanonicalVerified(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
+    } finally {
+      setCanonicalPending(false);
+    }
+  }
+
   async function reconcile() {
     setLoading(true); setError("");
     try {
-      const next = await monitorTransaction(hash, (value) => { setRecord(value); onPhase?.(value.phase); }, { attempts: 40 });
-      setRecord(next); onPhase?.(next.phase); if (next.phase === "FINALIZED") onFinalized?.();
+      const next = await monitorTransaction(hash, (value) => { if (value.phase !== "FINALIZED") publish(value); }, { attempts: 40 });
+      await publishTerminal(next);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not reconcile this transaction."); }
     finally { setLoading(false); }
   }
-  async function refreshOnce() { try { const next = await getTransaction(hash); setRecord(next); onPhase?.(next.phase); } catch (e) { setError(e instanceof Error ? e.message : "Could not read this transaction."); } }
-  const current = awaitingSignature && !record ? "AWAITING_SIGNATURE" : record?.phase || "SUBMITTED";
-  const stages: Array<{ key: TxPhase; label: string }> = [{ key: "AWAITING_SIGNATURE", label: "Awaiting signature" }, { key: "SUBMITTED", label: "Submitted" }, { key: "CONSENSUS", label: "Consensus" }, { key: "ACCEPTED_PROVISIONAL", label: "Accepted provisional" }, { key: "FINALIZED", label: "Finalized" }, { key: "MONITORING_STOPPED", label: "Monitoring stopped" }];
-  const stageIndex = current === "FAILED" || current === "CANCELED" ? 5 : Math.max(0, stages.findIndex((stage) => stage.key === current));
+
+  async function refreshOnce() {
+    setLoading(true); setError("");
+    try { await publishTerminal(await getTransaction(hash)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not read this transaction."); }
+    finally { setLoading(false); }
+  }
+
+  const protocolPhase = record?.phase || (hash ? "SUBMITTED" : "AWAITING_SIGNATURE");
+  const current: RailKey = canonicalVerified ? "CANONICAL_VERIFIED" : protocolPhase;
+  const isFailure = failurePhases.has(protocolPhase);
+  const currentIndex = successStages.findIndex((stage) => stage.key === current);
+
   return <div className="txNotice panel">
     <div className="eyebrow">Transaction receipt</div>
     <strong>{label}</strong>
     {hash ? <p className="mono">{hash}</p> : <p className="muted">No hash yet. Waiting for the wallet to approve this action.</p>}
-    <div className="txRail" aria-label={`Transaction lifecycle: ${current}`}>{stages.map((stage, index) => <div className={`txStage ${current === stage.key ? "current" : index < stageIndex ? "done" : ""}`} key={stage.key}>{stage.label}</div>)}</div>
+    {isFailure ? <div className="txTerminal" role="status"><strong>{protocolPhase}</strong><p>{failureMessage(protocolPhase)}</p></div> : <div className="txRail" aria-label={`Transaction lifecycle: ${current}`}>{successStages.map((stage, index) => <div className={`txStage ${current === stage.key ? "current" : index < currentIndex ? "done" : ""}`} key={stage.key}>{stage.label}</div>)}</div>}
     {record ? <p className="receiptMeta muted"><strong>{record.phase}</strong><span>Protocol: {record.protocolStatus}{record.executionStatus ? ` · execution ${record.executionStatus}` : ""}</span></p> : <p className="muted">Submitted hash saved. Consensus and finality are read from GenLayer, never inferred locally.</p>}
+    {canonicalPending && <p className="warning">Finalized. Reading the canonical Accordant state before confirming this action…</p>}
+    {record?.phase === "FINALIZED" && !canonicalVerified && !canonicalPending && <p className="warning">Transaction finalized, but canonical state is not yet verified. Reconcile this exact hash before retrying.</p>}
     {record?.phase === "ACCEPTED_PROVISIONAL" && <p className="warning">GenLayer accepted the transaction provisionally. The product state is not confirmed until finalization and canonical readback.</p>}
-    {record?.phase === "UNDETERMINED" && <p className="error">Consensus was not reached. No milestone result was recorded. Reconcile this exact hash; do not rebroadcast automatically.</p>}
-    {record?.phase === "CANCELED" && <p className="error">The protocol canceled this transaction. No product state was inferred.</p>}
-    {record?.phase === "FAILED" && <p className="error">Execution failed after protocol finalization. No successful product state was inferred.</p>}
-    {record?.phase === "MONITORING_STOPPED" && <p className="warning">Monitoring stopped. This transaction may still be progressing. Reconcile this exact hash before retrying.</p>}
-    <div className="row">{hash && <a className="button secondary" href={EXPLORER_URL + "/tx/" + hash} target="_blank" rel="noreferrer">Open explorer</a>}{hash && <button onClick={refreshOnce}>Refresh receipt</button>}{hash && <button className="secondary" disabled={loading} onClick={reconcile}>{loading ? "Monitoring…" : "Monitor to finality"}</button>}</div>
-    {error && <p className="error">{error}</p>}
+    <div className="row">{hash && <a className="button secondary" href={EXPLORER_URL + "/tx/" + hash} target="_blank" rel="noreferrer">Open explorer</a>}{hash && <button onClick={() => { void refreshOnce(); }} disabled={loading}>Refresh receipt</button>}{hash && <button className="secondary" disabled={loading} onClick={() => { void reconcile(); }}>{loading ? "Reconciling…" : "Monitor to finality"}</button>}</div>
+    {error && <p className="error" role="alert">{error}</p>}
   </div>;
 }

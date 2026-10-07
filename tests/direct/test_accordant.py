@@ -156,6 +156,12 @@ def test_evidence_validation_and_authentication(direct_vm, direct_deploy, direct
         contract.evaluate_attempt(active, "not-json")
     with direct_vm.expect_revert("unknown criterion"):
         _submit(contract, direct_vm, active, direct_bob, [_ref(8, "unknown")])
+    for malformed in ["banana", None, [], {}, 1.0, True]:
+        with direct_vm.expect_revert("criterion index is invalid"):
+            _submit(contract, direct_vm, active, direct_bob, [{**_ref(0, "malformed-index"), "criterion": malformed}])
+    for out_of_range in [-1, 999999999999999999999999999999999999999999999999999999999999]:
+        with direct_vm.expect_revert("unknown criterion"):
+            _submit(contract, direct_vm, active, direct_bob, [{**_ref(0, "out-of-range"), "criterion": out_of_range}])
     with direct_vm.expect_revert("Unknown evidence"):
         _submit(contract, direct_vm, active, direct_bob, [_ref(0, "kind", "UNKNOWN")])
     with direct_vm.expect_revert("HTTPS"):
@@ -340,18 +346,37 @@ def test_attempt_limit_is_49_50_then_51(direct_vm, direct_deploy, direct_alice, 
 def test_wallet_indexes_are_role_specific_and_page_addressable(direct_vm, direct_deploy, direct_alice, direct_bob):
     direct_vm.warp(BASE)
     contract = direct_deploy("contracts/accordant.py")
-    for number in range(101):
+    for number in range(121):
         _create(contract, direct_vm, direct_alice, direct_bob, title=f"Milestone {number:03d}")
 
-    requester_page = contract.get_requester_engagements(_hex(direct_alice), 100, 20)
-    performer_page = contract.get_performer_engagements(_hex(direct_bob), 100, 20)
-    assert requester_page["total"] == 101
-    assert requester_page["ids"] == ["101"]
-    assert requester_page["next_offset"] == 0
-    assert performer_page["total"] == 101
-    assert performer_page["ids"] == ["101"]
-    assert performer_page["next_offset"] == 0
+    for offset in [0, 19, 20, 39, 40, 99, 100]:
+        requester_page = contract.get_requester_engagements(_hex(direct_alice), offset, 20)
+        incoming_page = contract.get_performer_incoming(_hex(direct_bob), offset, 20)
+        expected_end = min(offset + 20, 121)
+        expected_ids = [str(index + 1) for index in range(offset, expected_end)]
+        expected_next = expected_end if expected_end < 121 else 0
+        assert requester_page["total"] == 121
+        assert requester_page["ids"] == expected_ids
+        assert requester_page["next_offset"] == expected_next
+        assert incoming_page["total"] == 121
+        assert incoming_page["ids"] == expected_ids
+        assert incoming_page["next_offset"] == expected_next
+
+    accepted = _active(contract, direct_vm, direct_alice, direct_bob)
+    accepted_page = contract.get_performer_engagements(_hex(direct_bob), 0, 20)
+    assert accepted_page["total"] == 1
+    assert accepted_page["ids"] == [accepted]
+    assert contract.get_performer_incoming(_hex(direct_bob), 0, 20)["total"] == 122
+
+    declined = _create(contract, direct_vm, direct_alice, direct_bob, title="Declined incoming")
+    direct_vm.sender = direct_bob
+    contract.decline_engagement(declined)
+    canceled = _create(contract, direct_vm, direct_alice, direct_bob, title="Cancelled incoming")
+    direct_vm.sender = direct_alice
+    contract.cancel_proposal(canceled)
+    assert contract.get_performer_engagements(_hex(direct_bob), 0, 20)["total"] == 1
 
     combined = contract.get_wallet_engagements(_hex(direct_alice), 0, 20)
-    assert combined["total"] == 101
+    assert combined["total"] == 124
     assert combined["incoming_total"] == 0
+    assert combined["performer_total"] == 0

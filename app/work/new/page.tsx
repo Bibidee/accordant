@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { writeContract } from "@/lib/genlayer";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { readContract, writeContract } from "@/lib/genlayer";
 import { useWallet } from "@/components/WalletContext";
 import { validatePerformerAddress } from "@/lib/validation";
 import { TransactionNotice } from "@/components/TransactionNotice";
+import type { Engagement, EngagementPage } from "@/lib/types";
 
 type CriterionDraft = { text: string; required: boolean };
 const blank = (): CriterionDraft => ({ text: "", required: true });
@@ -20,8 +21,10 @@ export default function NewWork() {
   const [deliveryDeadline, setDeliveryDeadline] = useState("");
   const [hash, setHash] = useState("");
   const [error, setError] = useState("");
+  const [canonical, setCanonical] = useState("");
   const [signing, setSigning] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  const pendingTerms = useRef<{ requester: string; performer: string; title: string; summary: string; proposal: number; delivery: number } | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -53,11 +56,13 @@ export default function NewWork() {
     if (signing) return;
     if (validation) { setError(validation); return; }
     setSigning(true);
+    setCanonical("");
     try {
       const accounts = account ? [account] : await connect();
       if (!accounts[0]) throw new Error("Connect the requester wallet before signing the proposal.");
       const proposal = Math.floor(Date.parse(proposalDeadline) / 1000);
       const delivery = Math.floor(Date.parse(deliveryDeadline) / 1000);
+      pendingTerms.current = { requester: accounts[0].toLowerCase(), performer: performer.trim().toLowerCase(), title: title.trim(), summary: summary.trim(), proposal, delivery };
       const tx = await writeContract("create_engagement", [performer.trim(), title.trim(), summary.trim(), criteria.map((c) => c.text.trim()), criteria.map((c) => c.required), proposal, delivery], accounts[0], window.ethereum!);
       setHash(tx);
     } catch (e) {
@@ -67,7 +72,20 @@ export default function NewWork() {
   }
 
   function onPhase(phase: Parameters<NonNullable<React.ComponentProps<typeof TransactionNotice>["onPhase"]>>[0]) {
-    if (["FINALIZED", "FAILED", "UNDETERMINED", "CANCELED", "MONITORING_STOPPED"].includes(phase)) setSigning(false);
+    if (["FAILED", "UNDETERMINED", "CANCELED", "MONITORING_STOPPED"].includes(phase)) setSigning(false);
+  }
+
+  async function confirmCanonicalCreation() {
+    if (!pendingTerms.current) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
+    const expected = pendingTerms.current;
+    const first = await readContract<EngagementPage>("get_requester_engagements", [expected.requester, 0, 20]);
+    const offset = Math.max(0, first.total - 20);
+    const page = offset === 0 ? first : await readContract<EngagementPage>("get_requester_engagements", [expected.requester, offset, 20]);
+    const candidates = await Promise.all((page.ids || []).map((id) => readContract<Engagement>("get_engagement", [String(id)])));
+    const found = candidates.find((item) => item.requester.toLowerCase() === expected.requester && item.performer.toLowerCase() === expected.performer && item.title === expected.title && item.summary === expected.summary && item.proposal_deadline === expected.proposal && item.delivery_deadline === expected.delivery && item.status === "PROPOSED");
+    if (!found) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
+    setCanonical("Canonical state verified: proposal " + found.id + " is PROPOSED on Studionet.");
+    setSigning(false);
   }
 
   return <section className="doc">
@@ -75,7 +93,8 @@ export default function NewWork() {
     <h1>Define the acceptance line.</h1>
     <p className="lede">Creating the proposal signs the exact frozen terms. The performer will review these same criteria before accepting.</p>
     <div className="composeSteps" aria-label="One-page engagement composer"><span className="composeStep active">ONE-PAGE COMPOSER</span><span className="composeStep active">LIVE AGREEMENT PREVIEW</span></div>
-    {(hash || signing) && <TransactionNotice hash={hash} label="Create engagement" awaitingSignature={signing && !hash} onPhase={onPhase} />}
+    {(hash || signing) && <TransactionNotice key={hash || "pending"} hash={hash} label="Create engagement" awaitingSignature={signing && !hash} onPhase={onPhase} onFinalized={confirmCanonicalCreation} />}
+    {canonical && <p className="success" role="status">{canonical}</p>}
     <div className="composeLayout">
       <form className="form" onSubmit={submit}>
         <label className="field">Performer wallet<span className="muted">The designated wallet that can accept and submit evidence.</span><input value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="0x…" autoComplete="off" /></label>

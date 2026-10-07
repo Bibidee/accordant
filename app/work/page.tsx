@@ -1,52 +1,113 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { readContract } from "@/lib/genlayer";
 import { useWallet } from "@/components/WalletContext";
 import type { Engagement, EngagementPage } from "@/lib/types";
 import { WalletPanel } from "@/components/WalletPanel";
 
-const statusText: Record<string, string> = { PROPOSED: "Awaiting acceptance", ACTIVE: "In progress", COMPLETED: "Completed", DECLINED: "Declined", CANCELLED: "Cancelled", EXPIRED: "Expired" };
+type SectionKey = "created" | "incoming" | "accepted";
+type SectionState = { items: Engagement[]; nextOffset: number; total: number; loading: boolean; error: string };
 
-async function readAll(role: "get_requester_engagements" | "get_performer_engagements", account: string) {
-  const ids: string[] = [];
-  let offset = 0;
-  do {
-    const page = await readContract<EngagementPage>(role, [account, offset, 20]);
-    ids.push(...(page.ids || []));
-    offset = page.next_offset || 0;
-  } while (offset);
-  return ids;
+const PAGE_SIZE = 20;
+const sectionConfig: Array<{ key: SectionKey; title: string; description: string; method: string }> = [
+  { key: "created", title: "Requester-created work", description: "Every proposal you created, including terminal outcomes.", method: "get_requester_engagements" },
+  { key: "incoming", title: "Incoming proposals", description: "Proposals addressed to this wallet. Accepted work is shown separately below.", method: "get_performer_incoming" },
+  { key: "accepted", title: "Accepted performer work", description: "Only proposals this wallet explicitly accepted.", method: "get_performer_engagements" },
+];
+
+const initialSections: Record<SectionKey, SectionState> = {
+  created: { items: [], nextOffset: 0, total: 0, loading: false, error: "" },
+  incoming: { items: [], nextOffset: 0, total: 0, loading: false, error: "" },
+  accepted: { items: [], nextOffset: 0, total: 0, loading: false, error: "" },
+};
+
+const statusText: Record<string, string> = {
+  PROPOSED: "Awaiting acceptance", ACTIVE: "In progress", COMPLETED: "Completed",
+  DECLINED: "Declined", CANCELLED: "Cancelled", EXPIRED: "Expired",
+};
+
+async function readSection(wallet: string, config: (typeof sectionConfig)[number], offset: number) {
+  const page = await readContract<EngagementPage>(config.method, [wallet, offset, PAGE_SIZE]);
+  const items = await Promise.all((page.ids || []).map((id) => readContract<Engagement>("get_engagement", [String(id)])));
+  return { items, nextOffset: page.next_offset || 0, total: page.total || 0 };
 }
 
 export default function WorkPage() {
   const { account } = useWallet();
-  const [items, setItems] = useState<Engagement[]>([]);
-  const [filter, setFilter] = useState("ALL");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sections, setSections] = useState(initialSections);
   const loadVersion = useRef(0);
 
-  const load = useCallback(async (wallet = account) => {
+  const patchSection = useCallback((key: SectionKey, patch: Partial<SectionState>) => {
+    setSections((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+  }, []);
+
+  const loadAll = useCallback(async (wallet = account) => {
     const version = ++loadVersion.current;
-    if (!wallet) { setItems([]); setError(""); return; }
-    setLoading(true); setError("");
-    try {
-      const [requesterIds, performerIds] = await Promise.all([readAll("get_requester_engagements", wallet), readAll("get_performer_engagements", wallet)]);
-      const ids = [...new Set([...requesterIds, ...performerIds])];
-      const engagements = await Promise.all(ids.map((id) => readContract<Engagement>("get_engagement", [String(id)])));
-      if (version === loadVersion.current) setItems(engagements);
-    } catch (e) {
-      if (version === loadVersion.current) setError(e instanceof Error ? e.message : "Could not load canonical engagements.");
-    } finally {
-      if (version === loadVersion.current) setLoading(false);
+    if (!wallet) {
+      setSections(initialSections);
+      return;
     }
-  }, [account]);
+    setSections((current) => Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { ...value, loading: true, error: "" }])) as Record<SectionKey, SectionState>);
+    for (const config of sectionConfig) {
+      if (version !== loadVersion.current) return;
+      try {
+        const result = await readSection(wallet, config, 0);
+        if (version === loadVersion.current) patchSection(config.key, { ...result, loading: false });
+      } catch (e) {
+        if (version === loadVersion.current) patchSection(config.key, { loading: false, error: e instanceof Error ? e.message : "Could not load this page." });
+      }
+    }
+  }, [account, patchSection]);
 
-  useEffect(() => { const timer = window.setTimeout(() => { void load(account); }, 0); return () => window.clearTimeout(timer); }, [account, load]);
-  const counts = useMemo(() => ({ all: items.length, active: items.filter((item) => item.status === "ACTIVE").length, proposed: items.filter((item) => item.status === "PROPOSED").length, completed: items.filter((item) => item.status === "COMPLETED").length }), [items]);
-  const visible = filter === "ALL" ? items : items.filter((item) => item.status === filter);
+  const loadMore = useCallback(async (key: SectionKey) => {
+    const config = sectionConfig.find((entry) => entry.key === key);
+    const current = sections[key];
+    if (!account || !config || !current.nextOffset || current.loading) return;
+    patchSection(key, { loading: true, error: "" });
+    try {
+      const result = await readSection(account, config, current.nextOffset);
+      setSections((all) => {
+        const existing = new Set(all[key].items.map((item) => item.id));
+        return { ...all, [key]: { ...all[key], items: [...all[key].items, ...result.items.filter((item) => !existing.has(item.id))], nextOffset: result.nextOffset, total: result.total, loading: false } };
+      });
+    } catch (e) {
+      patchSection(key, { loading: false, error: e instanceof Error ? e.message : "Could not load the next page." });
+    }
+  }, [account, patchSection, sections]);
 
-  return <><WalletPanel /><div className="workspace"><section className="doc"><div className="eyebrow">Work desk · wallet-scoped</div><div className="titleRow"><div><h1>Your engagements</h1><p className="lede">The acceptance line, the evidence, and the canonical state in one place.</p></div><span className="networkBadge">{account ? account.slice(0, 6) + "…" + account.slice(-4) : "Not connected"}</span></div><div className="statRow" aria-label="Engagement summary"><div className="stat"><strong>{counts.all}</strong><small>All agreements</small></div><div className="stat"><strong>{counts.active}</strong><small>In progress</small></div><div className="stat"><strong>{counts.proposed}</strong><small>Awaiting reply</small></div><div className="stat"><strong>{counts.completed}</strong><small>Completed</small></div></div><div className="row"><button onClick={() => { void load(); }} disabled={loading}>{loading ? "Reading Studionet…" : account ? "Refresh work" : "Connect and load"}</button><Link className="button lemon" href="/work/new">New engagement</Link></div><div className="workTabs" role="tablist" aria-label="Filter engagements">{[["ALL", "All"], ["ACTIVE", "In progress"], ["PROPOSED", "Awaiting acceptance"], ["COMPLETED", "Completed"]].map(([value, label]) => <button key={value} className={"workTab " + (filter === value ? "active" : "")} onClick={() => setFilter(value)} role="tab" aria-selected={filter === value}>{label}</button>)}</div>{error && <p className="error" role="alert">{error}</p>}<div className="cardList">{!loading && visible.length === 0 && <div className="panel"><strong>{account ? "No canonical engagements in this view." : "Connect a wallet to load wallet-scoped work."}</strong><p className="muted">Public agreements and attempt history remain readable without a wallet.</p></div>}{visible.map((item) => <Link className="engagementCard" key={item.id} href={"/work/" + item.id}><div className="row"><span className={"pill " + (item.status === "COMPLETED" ? "success" : "")}>{statusText[item.status] || item.status}</span><span className="muted">Agreement #{item.id}</span></div><h2>{item.title}</h2><p className="muted">{item.summary}</p><div className="meta"><span>{item.criteria?.length || 0} frozen criteria</span><span>{item.requester?.toLowerCase() === account.toLowerCase() ? "Requester" : "Performer"}</span><span>{item.attempt_count} attempt{item.attempt_count === 1 ? "" : "s"}</span></div></Link>)}</div></section><aside className="panel context"><div className="eyebrow">The work model</div><h3>One milestone. One shared line.</h3><p className="muted">Accordant keeps the agreement inspectable: two wallets, bounded criteria, criterion-bound evidence, and an append-only ledger.</p><div className="previewLine"><span>Reads</span><strong>Canonical</strong></div><div className="previewLine"><span>Evidence</span><strong>HTTPS only</strong></div><div className="previewLine"><span>History</span><strong>Append-only</strong></div></aside></div></>;
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadAll(account); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [account, loadAll]);
+
+  const loadedCount = Object.values(sections).reduce((sum, section) => sum + section.items.length, 0);
+  const acceptedCount = sections.accepted.total;
+  const incomingCount = sections.incoming.total;
+
+  return <>
+    <WalletPanel />
+    <div className="workspace">
+      <section className="doc">
+        <div className="eyebrow">Work desk · bounded wallet pages</div>
+        <div className="titleRow"><div><h1>Your engagements</h1><p className="lede">Canonical work is separated by role and loaded twenty records at a time.</p></div><span className="networkBadge">{account ? account.slice(0, 6) + "…" + account.slice(-4) : "Not connected"}</span></div>
+        <div className="statRow" aria-label="Engagement summary"><div className="stat"><strong>{sections.created.total}</strong><small>Created</small></div><div className="stat"><strong>{acceptedCount}</strong><small>Accepted work</small></div><div className="stat"><strong>{incomingCount}</strong><small>Incoming history</small></div><div className="stat"><strong>{loadedCount}</strong><small>Loaded now</small></div></div>
+        <div className="row"><button onClick={() => { void loadAll(); }} disabled={!account || Object.values(sections).some((section) => section.loading)}>{Object.values(sections).some((section) => section.loading) ? "Reading Studionet…" : account ? "Refresh first pages" : "Connect and load"}</button><Link className="button lemon" href="/work/new">New engagement</Link></div>
+        {!account && <div className="panel emptyWork"><strong>Connect a wallet to load bounded wallet pages.</strong><p className="muted">Public agreements and attempt history remain readable without a wallet.</p></div>}
+        {account && sectionConfig.map((config) => {
+          const section = sections[config.key];
+          return <section className="workSection" key={config.key} aria-labelledby={config.key + "-heading"}>
+            <div className="sectionRow row"><div><h2 className="sectionTitle" id={config.key + "-heading"}>{config.title}</h2><p className="muted sectionDescription">{config.description}</p></div><span className="pill">{section.total} total</span></div>
+            {section.error && <p className="error" role="alert">{section.error}</p>}
+            {section.loading && section.items.length === 0 && <div className="panel">Reading this page from Studionet…</div>}
+            {!section.loading && section.items.length === 0 && !section.error && <div className="panel"><strong>No records in this section.</strong><p className="muted">This view is backed by the contract’s role-specific index.</p></div>}
+            <div className="cardList">{section.items.map((item) => <Link className="engagementCard" key={item.id} href={"/work/" + item.id}><div className="row"><span className={"pill " + (item.status === "COMPLETED" ? "success" : "")}>{statusText[item.status] || item.status}</span><span className="muted">Agreement #{item.id}</span></div><h2>{item.title}</h2><p className="muted">{item.summary}</p><div className="meta"><span>{item.criteria?.length || 0} frozen criteria</span><span>{config.key === "created" ? "Requester" : config.key === "accepted" ? "Accepted performer" : "Incoming"}</span><span>{item.attempt_count} attempt{item.attempt_count === 1 ? "" : "s"}</span></div></Link>)}</div>
+            {section.nextOffset !== 0 && <button className="secondary loadMore" onClick={() => { void loadMore(config.key); }} disabled={section.loading}>{section.loading ? "Loading next page…" : `Load more · ${Math.max(0, section.total - section.items.length)} remaining`}</button>}
+          </section>;
+        })}
+      </section>
+      <aside className="panel context"><div className="eyebrow">The work model</div><h3>One milestone. One shared line.</h3><p className="muted">Accordant keeps the agreement inspectable: two wallets, bounded criteria, criterion-bound evidence, and an append-only ledger.</p><div className="previewLine"><span>Reads</span><strong>20 per page</strong></div><div className="previewLine"><span>Incoming</span><strong>Separate index</strong></div><div className="previewLine"><span>Accepted work</span><strong>Explicit opt-in</strong></div></aside>
+    </div>
+  </>;
 }
