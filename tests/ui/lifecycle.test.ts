@@ -171,6 +171,12 @@ describe("canonical frozen terms and evidence", () => {
     });
     expect(mixedCase.requester).toBe("0xFf203Bb65942F50CB81A8AF98c5F5bd9d8a79b54");
     expect(mixedCase.performer).toBe("0x3c4c71D8C449471acC31AD59187231001856655C");
+    const digest = await computeTermsDigest(mixedCase);
+    expect(frozenTermsMatch({
+      id: "18", requester: mixedCase.requester, performer: mixedCase.performer, title: mixedCase.title, summary: mixedCase.summary,
+      criteria: mixedCase.criteria, terms_digest: digest, proposal_deadline: mixedCase.proposalDeadline, delivery_deadline: mixedCase.deliveryDeadline,
+      status: "PROPOSED", accepted_at: 0, attempt_count: 0, latest_result: "", completed_at: 0, created_at: 1,
+    } as Engagement, mixedCase, digest)).toBe(true);
   });
 
   it("requires every frozen term and criterion position to match", async () => {

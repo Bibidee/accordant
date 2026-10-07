@@ -79,8 +79,8 @@ export function frozenTermsMatch(engagement: Engagement, expected: FrozenTerms, 
     const actual = engagement.criteria[index];
     return actual?.index === criterion.index && actual.text === criterion.text && actual.required === criterion.required;
   });
-  return engagement.requester.toLowerCase() === expected.requester
-    && engagement.performer.toLowerCase() === expected.performer
+  return engagement.requester.toLowerCase() === expected.requester.toLowerCase()
+    && engagement.performer.toLowerCase() === expected.performer.toLowerCase()
     && engagement.title === expected.title
     && engagement.summary === expected.summary
     && criteriaMatch
