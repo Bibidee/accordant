@@ -28,10 +28,10 @@ The baseline findings below are retained as historical context. The current stat
 
 - `tests/direct/test_accordant.py` exercises the production contract source in Direct Mode, including 121-record pagination, role integrity, malformed criterion inputs, and lifecycle outcomes.
 - GitHub Actions remains split into Web, Direct Mode, Production dependency audit, and Required CI gate jobs.
-- The frontend regression suite has 25 passing UI tests, including concurrent appended-attempt reconciliation, historical/latest attempt semantics, duplicate/no-match fail-closed cases, and count/fetch pagination races.
+- The frontend regression suite has 44 passing UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, concurrent appended-attempt reconciliation, historical/latest attempt semantics, duplicate/no-match fail-closed cases, and count/fetch pagination races.
 - Full development and production npm audits now report `found 0 vulnerabilities`; the deploy CLI is isolated from the frontend dependency tree and the lint stack no longer uses the vulnerable Next ESLint bundle.
 - GitHub Actions uses Node 24-compatible action majors, and the active `Protect master` ruleset (ID `24645498`) requires all four CI checks while blocking deletion and non-fast-forward updates.
-- Final merged master CI run `37615219327` passed all four required jobs on HEAD `aa6463e60a190e9107c528c3f8fb534c43d838c0`; the frontend-only production deployment is `9DypEwf3N9ZhKoBje2MaGG4WYjBQ`.
+- The protected master ruleset requires all four CI checks; refer to the latest successful workflow for current master verification. The frontend-only production deployment is recorded in `docs/DEPLOYMENT.md`.
 - The changed contract was freshly deployed at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E` from source commit `48281c7df1af71086017c7425c0315cf195f2510` and source SHA `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`.
 
 The changed-contract deployment requirement is satisfied. The previous address `0x838D981244760a4A70c315311908347DEc953e8B` is superseded and is not a current production binding.

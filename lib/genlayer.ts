@@ -45,8 +45,8 @@ function phaseForStatus(status: string, executionStatus?: string): TxPhase {
   const normalized = status.toUpperCase();
   if (normalized === "UNDETERMINED" || normalized.includes("TIMEOUT")) return "UNDETERMINED";
   if (normalized === "CANCELED" || normalized === "CANCELLED") return "CANCELED";
-  if (normalized === "FINALIZED") return executionStatus === "FINISHED_WITH_ERROR" ? "FAILED" : "FINALIZED";
-  if (normalized === "ACCEPTED") return executionStatus === "FINISHED_WITH_ERROR" ? "FAILED" : "ACCEPTED_PROVISIONAL";
+  if (normalized === "FINALIZED") return executionStatus === "FINISHED_WITH_RETURN" ? "FINALIZED" : "FAILED";
+  if (normalized === "ACCEPTED") return executionStatus === "FINISHED_WITH_RETURN" ? "ACCEPTED_PROVISIONAL" : "FAILED";
   if (["PENDING", "PROPOSING", "COMMITTING", "REVEALING"].includes(normalized)) return "CONSENSUS";
   return "SUBMITTED";
 }

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.mjs",
-    "cli": "npx --yes genlayer@0.39.2",
+    "cli": "npx --yes genlayer@0.39.1",
     "network:check": "node scripts/network-check.mjs",
     "preflight": "npm run network:check && npm run typecheck && npm run lint && npm run test && npm run build"
   },
