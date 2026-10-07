@@ -72,7 +72,7 @@ The following checks passed locally:
 - Direct Mode — 9 contract tests passed against the pinned GenVM `v0.2.16` bundle, including 121-record role/pagination and malformed criterion cases. The compatibility shim is in `tests/direct/conftest.py`; the GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- Final merged master CI run `37614564930` passed Web tests and production build, Direct Mode contract tests, Production dependency audit, and Required CI gate on HEAD `97561854b8642cbf0ae047ce22e7a288efbb4b72`.
+- Final merged master CI run `37615219327` passed Web tests and production build, Direct Mode contract tests, Production dependency audit, and Required CI gate on HEAD `aa6463e60a190e9107c528c3f8fb534c43d838c0`.
 
 The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The exact interactive mobile check passed in Edge at `390×844`: all nine routes returned HTTP 200, each had no horizontal overflow, and the Work navigation link changed the route to `/work`.
 
