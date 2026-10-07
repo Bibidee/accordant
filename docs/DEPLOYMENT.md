@@ -8,7 +8,7 @@ This file records facts observed while building, deploying, and verifying the cu
 - Chain ID: `61999`
 - RPC: `https://studio.genlayer.com/api`
 - Explorer: `https://explorer-studio.genlayer.com`
-- CLI package used for future deploys: `0.39.2` via `npm run cli`
+- CLI package used for future deploys: `0.39.1` via `npm run cli`
 - `genlayer-js`: `1.1.8`
 
 ## Implementation
@@ -62,7 +62,7 @@ The following checks passed locally:
 - `npm run network:check` — Studionet 61999 only.
 - `npm run typecheck`.
 - `npm run lint`.
-- `npm run test` — 31 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, expiry reconciliation, pagination-count races, terminal transaction branches, and finalized receipt refresh.
+- `npm run test` — 44 UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, expiry reconciliation, pagination-count races, terminal transaction branches, and finalized receipt refresh.
 - `npm run build -- --webpack` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
 - Full `npm audit --audit-level=high` — `found 0 vulnerabilities` after isolating the deploy CLI, updating Vitest, and replacing the vulnerable Next ESLint bundle with ESLint 9-compatible maintained packages.
@@ -72,13 +72,13 @@ The following checks passed locally:
 - Direct Mode — 9 contract tests passed against the pinned GenVM `v0.2.16` bundle, including 121-record role/pagination and malformed criterion cases. The compatibility shim is in `tests/direct/conftest.py`; the GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- Final merged master CI run `37615219327` passed Web tests and production build, Direct Mode contract tests, Production dependency audit, and Required CI gate on HEAD `aa6463e60a190e9107c528c3f8fb534c43d838c0`.
+- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate; refer to the latest successful workflow for the current master verification.
 
 The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The exact interactive mobile check passed in Edge at `390×844`: all nine routes returned HTTP 200, each had no horizontal overflow, and the Work navigation link changed the route to `/work`.
 
-## Live two-wallet lifecycle
+## Historical two-wallet CLI lifecycle
 
-The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (performer). All hashes below target the current contract above and were finalized before canonical readback. The captured evidence covers every required path:
+The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (performer). All hashes below target the current contract above and were finalized before canonical readback. This is historical CLI evidence; it is not a substitute for the fresh Brave injected-wallet production lifecycle required by the current handoff. The captured evidence covers every required path:
 
 | Engagement | Scenario | Result |
 | ---: | --- | --- |
