@@ -3,22 +3,73 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { readContract, writeContract } from "@/lib/genlayer";
-import { availableAccounts, requestAccounts } from "@/lib/wallet";
-import type { AttemptPage, Engagement, EvidenceKind, EvidenceRef } from "@/lib/types";
+import { useWallet } from "@/components/WalletContext";
+import type { AttemptPage, Engagement, EvidenceKind, EvidenceRef, TxPhase } from "@/lib/types";
 import { validateEvidenceRefs } from "@/lib/validation";
 import { TransactionNotice } from "@/components/TransactionNotice";
 
 const kinds: EvidenceKind[] = ["VERSIONED_SOURCE", "TRANSACTION", "PUBLIC_ARTIFACT", "LIVE_DEPLOYMENT"];
 
 export default function SubmitPage({ params }: { params: Promise<{ engagementId: string }> }) {
-  const [engagementId, setEngagementId] = useState(""); const [item, setItem] = useState<Engagement | null>(null); const [refs, setRefs] = useState<Record<number, EvidenceRef[]>>({}); const [hash, setHash] = useState(""); const [error, setError] = useState(""); const [canonical, setCanonical] = useState(""); const [signing, setSigning] = useState(false);
-  useEffect(() => { let active = true; params.then(async ({ engagementId: id }) => { if (!active) return; setEngagementId(id); try { const accounts = await availableAccounts(); const item = await readContract<Engagement>("get_engagement", [id], accounts[0] ? window.ethereum : undefined, accounts[0]); if (active) setItem(item); } catch (e) { if (active) setError(e instanceof Error ? e.message : "Could not load the frozen criteria."); } }); return () => { active = false; }; }, [params]);
+  const { account, connect } = useWallet();
+  const [engagementId, setEngagementId] = useState("");
+  const [item, setItem] = useState<Engagement | null>(null);
+  const [refs, setRefs] = useState<Record<number, EvidenceRef[]>>({});
+  const [hash, setHash] = useState("");
+  const [error, setError] = useState("");
+  const [canonical, setCanonical] = useState("");
+  const [signing, setSigning] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    params.then(async ({ engagementId: id }) => {
+      if (!active) return;
+      setEngagementId(id);
+      try {
+        const next = await readContract<Engagement>("get_engagement", [id]);
+        if (active) setItem(next);
+      } catch (e) { if (active) setError(e instanceof Error ? e.message : "Could not load the frozen criteria."); }
+    });
+    return () => { active = false; };
+  }, [params]);
+
   function addRef(index: number) { setRefs((all) => ({ ...all, [index]: [...(all[index] || []), { criterion: index, kind: "VERSIONED_SOURCE", url: "", note: "" }] })); }
   function updateRef(index: number, refIndex: number, patch: Partial<EvidenceRef>) { setRefs((all) => ({ ...all, [index]: (all[index] || []).map((ref, i) => i === refIndex ? { ...ref, ...patch } : ref) })); }
   function removeRef(index: number, refIndex: number) { setRefs((all) => ({ ...all, [index]: (all[index] || []).filter((_, i) => i !== refIndex) })); }
   const payload = item?.criteria.flatMap((c) => refs[c.index] || []) || [];
-  async function submit(event: React.FormEvent) { event.preventDefault(); setError(""); if (!item || item.status !== "ACTIVE") { setError("Only an ACTIVE engagement can receive an attempt."); return; } const evidenceError = validateEvidenceRefs(item.criteria, payload); if (evidenceError) { setError(evidenceError); return; } setSigning(true); try { const accounts = await requestAccounts(); if (!accounts[0]) throw new Error("Connect the performer wallet before signing evidence."); const tx = await writeContract("evaluate_attempt", [engagementId, JSON.stringify(payload)], accounts[0], window.ethereum!); setHash(tx); } catch (e) { setError(e instanceof Error ? e.message : "The evidence transaction failed or was rejected."); } finally { setSigning(false); } }
-  async function confirmCanonicalAttempt() { try { const accounts = await requestAccounts(); if (!accounts[0]) throw new Error("Connect the wallet to read canonical state."); const engagement = await readContract<Engagement>("get_engagement", [engagementId], window.ethereum, accounts[0]); const offset = Math.max(0, engagement.attempt_count - 20); const page = await readContract<AttemptPage>("get_attempts", [engagementId, offset, 20], window.ethereum, accounts[0]); const latest = page.items?.[page.items.length - 1]; setItem(engagement); setCanonical(latest ? `Canonical readback: attempt ${latest.number} · ${latest.result} · engagement ${engagement.status}.` : "Finalized, but the canonical ledger returned no attempt."); } catch (e) { setError(e instanceof Error ? e.message : "Finalized, but canonical readback failed."); } }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (signing) return;
+    if (!item || item.status !== "ACTIVE") { setError("Only an ACTIVE engagement can receive an attempt."); return; }
+    const evidenceError = validateEvidenceRefs(item.criteria, payload);
+    if (evidenceError) { setError(evidenceError); return; }
+    setSigning(true);
+    try {
+      const accounts = account ? [account] : await connect();
+      if (!accounts[0]) throw new Error("Connect the performer wallet before signing evidence.");
+      const tx = await writeContract("evaluate_attempt", [engagementId, JSON.stringify(payload)], accounts[0], window.ethereum!);
+      setHash(tx);
+    } catch (e) {
+      setSigning(false);
+      setError(e instanceof Error ? e.message : "The evidence transaction failed or was rejected.");
+    }
+  }
+
+  async function confirmCanonicalAttempt() {
+    try {
+      const engagement = await readContract<Engagement>("get_engagement", [engagementId]);
+      const offset = Math.max(0, engagement.attempt_count - 20);
+      const page = await readContract<AttemptPage>("get_attempts", [engagementId, offset, 20]);
+      const latest = page.items?.[page.items.length - 1];
+      setItem(engagement);
+      setCanonical(latest ? "Canonical readback: attempt " + latest.number + " · " + latest.result + " · engagement " + engagement.status + "." : "Finalized, but the canonical ledger returned no attempt.");
+      setSigning(false);
+    } catch (e) { setError(e instanceof Error ? e.message : "Finalized, but canonical readback failed."); }
+  }
+  function onPhase(phase: TxPhase) { if (["FAILED", "UNDETERMINED", "CANCELED", "MONITORING_STOPPED"].includes(phase)) setSigning(false); }
+
   if (!item) return <section className="doc"><div className="eyebrow">Engagement {engagementId || "…"}</div><h1>Attach the proof.</h1><p className={error ? "error" : "muted"}>{error || "Reading frozen criteria from Studionet…"}</p></section>;
-  return <section className="doc"><div className="eyebrow">Evidence desk · engagement {item.id}</div><div className="titleRow"><div><h1>Attach proof to the line.</h1><p className="lede">Each source belongs to one frozen criterion. Validators see the URLs and the evidence content, not a generic claim of completion.</p></div><span className="pill">{payload.length}/10 references</span></div>{hash && <TransactionNotice hash={hash} label="Evaluate evidence attempt" onFinalized={confirmCanonicalAttempt} />}{canonical && <p className="success" role="status">{canonical}</p>}<form className="form" onSubmit={submit}><div className="criteria">{item.criteria.map((criterion) => <article className="criterion evidenceSheet" key={criterion.index}><div className="row criterionHead"><div><span className="eyebrow">Criterion {String(criterion.index + 1).padStart(2, "0")}</span><h3>{criterion.text}</h3></div><span className="pill">{criterion.required ? "Required" : "Supporting"}</span></div><p className="muted">Attach up to two bounded public sources that directly support this condition.</p>{(refs[criterion.index] || []).map((ref, refIndex) => <div className="evidenceRow" key={refIndex}><label className="field">Source kind<select value={ref.kind} onChange={(e) => updateRef(criterion.index, refIndex, { kind: e.target.value as EvidenceKind })}>{kinds.map((kind) => <option key={kind}>{kind}</option>)}</select></label><label className="field">HTTPS URL<input value={ref.url} onChange={(e) => updateRef(criterion.index, refIndex, { url: e.target.value })} placeholder="https://…" inputMode="url" /></label><label className="field">Short note <span className="muted">optional</span><input value={ref.note || ""} onChange={(e) => updateRef(criterion.index, refIndex, { note: e.target.value })} maxLength={240} placeholder="What this source may demonstrate" /></label><button type="button" className="textButton" onClick={() => removeRef(criterion.index, refIndex)}>Remove source</button></div>)}{(refs[criterion.index] || []).length < 2 && <button type="button" className="secondary" onClick={() => addRef(criterion.index)}>+ Attach evidence</button>}</article>)}</div><details className="technicalDetails"><summary>Review exact signed payload</summary><p className="muted">The contract canonicalizes this bounded list before validator evaluation.</p><pre className="preview">{JSON.stringify(payload, null, 2)}</pre></details>{error && <p className="error" role="alert">{error}</p>}<div className="row"><button className="lemon" type="submit" disabled={signing}>{signing ? "Awaiting wallet signature…" : "Sign evidence submission"}</button><Link className="button secondary" href={`/work/${item.id}`}>Back to agreement</Link></div></form></section>;
+  return <section className="doc"><div className="eyebrow">Evidence desk · engagement {item.id}</div><div className="titleRow"><div><h1>Attach proof to the line.</h1><p className="lede">Each source belongs to one frozen criterion. Validators see the URLs and the evidence content, not a generic claim of completion.</p></div><span className="pill">{payload.length}/10 references</span></div>{(hash || signing) && <TransactionNotice hash={hash} label="Evaluate evidence attempt" awaitingSignature={signing && !hash} onPhase={onPhase} onFinalized={confirmCanonicalAttempt} />}{canonical && <p className="success" role="status">{canonical}</p>}<form className="form" onSubmit={submit}><div className="criteria">{item.criteria.map((criterion) => <article className="criterion evidenceSheet" key={criterion.index}><div className="row criterionHead"><div><span className="eyebrow">Criterion {String(criterion.index + 1).padStart(2, "0")}</span><h3>{criterion.text}</h3></div><span className="pill">{criterion.required ? "Required" : "Supporting"}</span></div><p className="muted">Attach up to two bounded public sources that directly support this condition.</p>{(refs[criterion.index] || []).map((ref, refIndex) => <div className="evidenceRow" key={refIndex}><label className="field">Source kind<select value={ref.kind} onChange={(e) => updateRef(criterion.index, refIndex, { kind: e.target.value as EvidenceKind })}>{kinds.map((kind) => <option key={kind}>{kind}</option>)}</select></label><label className="field">HTTPS URL<input value={ref.url} onChange={(e) => updateRef(criterion.index, refIndex, { url: e.target.value })} placeholder="https://…" inputMode="url" /></label><label className="field">Short note <span className="muted">optional</span><input value={ref.note || ""} onChange={(e) => updateRef(criterion.index, refIndex, { note: e.target.value })} maxLength={240} placeholder="What this source may demonstrate" /></label><button type="button" className="textButton" onClick={() => removeRef(criterion.index, refIndex)}>Remove source</button></div>)}{(refs[criterion.index] || []).length < 2 && <button type="button" className="secondary" onClick={() => addRef(criterion.index)}>+ Attach evidence</button>}</article>)}</div><details className="technicalDetails"><summary>Review exact signed payload</summary><p className="muted">The contract canonicalizes this bounded list before validator evaluation.</p><pre className="preview">{JSON.stringify(payload, null, 2)}</pre></details>{error && <p className="error" role="alert">{error}</p>}<div className="row"><button className="lemon" type="submit" disabled={signing}>{signing ? "Awaiting wallet signature…" : "Sign evidence submission"}</button><Link className="button secondary" href={"/work/" + item.id}>Back to agreement</Link></div></form></section>;
 }

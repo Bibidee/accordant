@@ -2,7 +2,7 @@ const fs = await import("node:fs");
 const path = await import("node:path");
 const root = process.cwd();
 const banned = [new RegExp(["619", "97"].join(""), "g"), new RegExp(["studio", "-dev"].join(""), "gi")];
-const allowedDirs = new Set(["node_modules", ".next", ".git"]);
+const allowedDirs = new Set(["node_modules", ".next", ".git", ".vercel", ".direct-mode-packages", ".direct-mode-latest", ".pytest_cache", ".codex", ".agents", ".openai", "artifacts"]);
 let bad = [];
 function walk(dir) {
   for (const name of fs.readdirSync(dir)) {

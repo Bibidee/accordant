@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHAIN_ID, RPC_URL } from "../../lib/constants";
-import { deriveProductResult, isPrivateOrLocalHostname, validateEvidenceRefs, validateEvidenceUrl } from "../../lib/validation";
+import { deriveProductResult, isPrivateOrLocalHostname, normalizeEvidenceUrl, validateEvidenceRefs, validateEvidenceUrl, validatePerformerAddress } from "../../lib/validation";
 import type { Criterion, EvidenceRef } from "../../lib/types";
 
 describe("Accordant network lock", () => {
@@ -30,6 +30,12 @@ describe("Accordant network lock", () => {
     for (const url of ["http://example.com/proof", "https://localhost/proof", "https://127.0.0.1/proof", "https://10.0.0.1/proof", "https://[::1]/proof", "https://[fd00::1]/proof", "https://example.com/proof#fragment", "https://user:pass@example.com/proof", "https://example.com:bad/proof"]) {
       expect(validateEvidenceUrl(url)).not.toBe("");
     }
+    for (const url of ["https://127.1/proof", "https://2130706433/proof", "https://0x7f000001/proof", "https://0177.0.0.1/proof", "https://[0:0:0:0:0:ffff:7f00:1]/proof", "https://example.com:0/proof", "https://example.com:65536/proof", "https://2001:db8::1/proof"]) {
+      expect(validateEvidenceUrl(url)).not.toBe("");
+    }
+    expect(normalizeEvidenceUrl("https://EXAMPLE.com.:443/proof")).toBe("https://example.com/proof");
+    expect(validatePerformerAddress("0x0000000000000000000000000000000000000000")).not.toBe("");
+    expect(validatePerformerAddress("0x1111111111111111111111111111111111111111")).toBe("");
     expect(isPrivateOrLocalHostname("localhost")).toBe(true);
     expect(isPrivateOrLocalHostname("192.168.1.4")).toBe(true);
     expect(isPrivateOrLocalHostname("::ffff:127.0.0.1")).toBe(true);

@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  verify:
+  web:
+    name: Web tests and production build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,16 +15,55 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - run: npm ci
+      - run: npm run network:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build -- --webpack
+
+  direct-mode:
+    name: Direct Mode contract tests
+    runs-on: ubuntu-latest
+    env:
+      GENVM_VERSION: v0.2.16
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
+      - name: Install pinned Direct Mode runner
+        run: python -m pip install -r requirements-dev.txt
+      - name: Confirm clean GenVM runner cache
+        run: |
+          rm -rf "${HOME}/.cache/gltest-direct"
+          echo "GENVM_VERSION=${GENVM_VERSION}"
+          echo "genvm bundle: genvm-universal.tar.xz (official loader also probes genvm-runners-all.tar.xz first)"
+      - name: Run production-source Direct Mode tests
+        run: python -m pytest -q tests/direct
+
+  security:
+    name: Production dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - run: npm ci
-      - run: python -m pip install -r requirements-dev.txt
-      - run: npm run network:check
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run test
-      - run: python -m pytest -q tests/direct
-      - run: npm run build -- --webpack
+      - run: npm audit --omit=dev --audit-level=high
+
+  gate:
+    name: Required CI gate
+    if: always()
+    needs: [web, direct-mode, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every verification job to pass
+        run: |
+          test "${{ needs.web.result }}" = "success"
+          test "${{ needs.direct-mode.result }}" = "success"
+          test "${{ needs.security.result }}" = "success"

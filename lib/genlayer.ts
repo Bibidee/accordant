@@ -33,9 +33,18 @@ export async function writeContract(functionName: string, args: unknown[], accou
   return transactionHash;
 }
 
+function executionFromRaw(raw: Record<string, unknown>): string | undefined {
+  if (raw.txExecutionResultName) return String(raw.txExecutionResultName);
+  const consensus = raw.consensus_data as { leader_receipt?: Array<{ execution_result?: string }> } | undefined;
+  const leader = consensus?.leader_receipt?.[0]?.execution_result;
+  if (leader === "SUCCESS") return "FINISHED_WITH_RETURN";
+  if (leader === "ERROR") return "FINISHED_WITH_ERROR";
+  return undefined;
+}
 function phaseForStatus(status: string, executionStatus?: string): TxPhase {
   const normalized = status.toUpperCase();
-  if (normalized === "UNDETERMINED" || normalized === "CANCELED" || normalized.includes("TIMEOUT")) return "UNDETERMINED";
+  if (normalized === "UNDETERMINED" || normalized.includes("TIMEOUT")) return "UNDETERMINED";
+  if (normalized === "CANCELED" || normalized === "CANCELLED") return "CANCELED";
   if (normalized === "FINALIZED") return executionStatus === "FINISHED_WITH_ERROR" ? "FAILED" : "FINALIZED";
   if (normalized === "ACCEPTED") return executionStatus === "FINISHED_WITH_ERROR" ? "FAILED" : "ACCEPTED_PROVISIONAL";
   if (["PENDING", "PROPOSING", "COMMITTING", "REVEALING"].includes(normalized)) return "CONSENSUS";
@@ -43,7 +52,7 @@ function phaseForStatus(status: string, executionStatus?: string): TxPhase {
 }
 export function toTransactionRecord(hash: string, raw: Record<string, unknown>): TransactionRecord {
   const protocolStatus = String(raw.statusName || raw.status || "UNKNOWN");
-  const executionStatus = raw.txExecutionResultName ? String(raw.txExecutionResultName) : undefined;
+  const executionStatus = executionFromRaw(raw);
   return { hash, protocolStatus, phase: phaseForStatus(protocolStatus, executionStatus), executionStatus, raw };
 }
 export async function getTransaction(hash: string, provider?: Eip1193Provider): Promise<TransactionRecord> {
@@ -54,8 +63,8 @@ export async function monitorTransaction(hash: string, onUpdate?: (record: Trans
   const intervalMs = options?.intervalMs ?? 3000; let remaining = options?.attempts ?? 40; let last: TransactionRecord | undefined;
   while (remaining-- > 0) {
     last = await getTransaction(hash, options?.provider); onUpdate?.(last); updateRememberedTransaction(hash, { phase: last.phase });
-    if (["FINALIZED", "UNDETERMINED", "FAILED"].includes(last.phase)) return last;
+    if (["FINALIZED", "UNDETERMINED", "FAILED", "CANCELED"].includes(last.phase)) return last;
     await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
   }
-  return last || { hash, protocolStatus: "UNKNOWN", phase: "SUBMITTED", raw: {} };
+  return last ? { ...last, phase: ["FINALIZED", "FAILED", "UNDETERMINED", "CANCELED"].includes(last.phase) ? last.phase : "MONITORING_STOPPED" } : { hash, protocolStatus: "UNKNOWN", phase: "MONITORING_STOPPED", raw: {} };
 }

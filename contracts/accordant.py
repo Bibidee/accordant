@@ -16,9 +16,10 @@ MAX_EVIDENCE_TOTAL = 10
 MAX_URL_CHARS = 600
 MAX_FETCH_CHARS = 18000
 MAX_SUBMISSION_CHARS = 12000
-MAX_WALLET_INDEX = 100
+INDEX_PAGE_SIZE = 20
 MAX_ATTEMPTS = 50
 MAX_PAGE_SIZE = 20
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 DECISIONS = ("MET", "NOT_MET", "UNVERIFIABLE")
 RESULTS = ("ACCEPTED", "REVISION_REQUIRED", "INCONCLUSIVE")
@@ -71,7 +72,10 @@ class Accordant(gl.Contract):
     engagements: TreeMap[str, Engagement]
     attempts: TreeMap[str, DynArray[Attempt]]
     seen_submissions: TreeMap[str, bool]
-    wallet_ids: TreeMap[Address, DynArray[str]]
+    requester_counts: TreeMap[Address, u64]
+    performer_counts: TreeMap[Address, u64]
+    requester_slots: TreeMap[str, str]
+    performer_slots: TreeMap[str, str]
 
     def __init__(self):
         self.next_id = u256(1)
@@ -91,6 +95,33 @@ class Accordant(gl.Contract):
             raise gl.vm.UserError(f"{label} must be {minimum} to {maximum} characters")
         return clean
 
+    def _wallet_page_key(self, role: str, wallet: Address, page: int) -> str:
+        return f"{role}:{wallet.as_hex.lower()}:{page}"
+
+    def _append_wallet_id(self, role: str, wallet: Address, engagement_id: str) -> None:
+        counts = self.requester_counts if role == "requester" else self.performer_counts
+        slots = self.requester_slots if role == "requester" else self.performer_slots
+        count = int(counts.get(wallet, u64(0)))
+        page_number = count // INDEX_PAGE_SIZE
+        slot_key = f"{self._wallet_page_key(role, wallet, page_number)}:{count % INDEX_PAGE_SIZE}"
+        slots[slot_key] = engagement_id
+        counts[wallet] = u64(count + 1)
+
+    def _read_wallet_page(self, role: str, wallet: Address, offset: int, limit: int) -> dict:
+        counts = self.requester_counts if role == "requester" else self.performer_counts
+        slots = self.requester_slots if role == "requester" else self.performer_slots
+        total = int(counts.get(wallet, u64(0)))
+        start = int(offset)
+        end = min(start + int(limit), total)
+        ids = []
+        for absolute in range(start, end):
+            page_number = absolute // INDEX_PAGE_SIZE
+            slot = absolute % INDEX_PAGE_SIZE
+            key = f"{self._wallet_page_key(role, wallet, page_number)}:{slot}"
+            if key in slots:
+                ids.append(str(slots[key]))
+        return {"ids": ids, "next_offset": end if end < total else 0, "total": total}
+
     def _terms_digest(self, requester: Address, performer: Address, title: str, summary: str, criteria: list[dict], proposal_deadline: int, delivery_deadline: int) -> str:
         payload = json.dumps({
             "requester": requester.as_hex,
@@ -103,12 +134,20 @@ class Accordant(gl.Contract):
         }, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-    def _is_private_ipv4(self, host: str) -> bool:
+    def _ipv4_parts(self, host: str) -> list[int]:
         parts = host.split(".")
         if len(parts) != 4 or not all(part.isdigit() for part in parts):
-            return False
+            return []
+        if any(len(part) > 1 and part.startswith("0") for part in parts):
+            return []
         values = [int(part) for part in parts]
         if not all(0 <= value <= 255 for value in values):
+            return []
+        return values
+
+    def _is_private_ipv4(self, host: str) -> bool:
+        values = self._ipv4_parts(host)
+        if not values:
             return False
         first, second = values[0], values[1]
         return (
@@ -119,22 +158,56 @@ class Accordant(gl.Contract):
             or (first == 192 and second == 168)
         )
 
-    def _is_private_ipv6(self, host: str) -> bool:
+    def _is_numeric_host_form(self, host: str) -> bool:
         normalized = host.lower()
-        compact = normalized.replace(":", "")
-        if normalized in ("::", "::1") or compact in ("", "1"):
+        if normalized.startswith("0x") or normalized.isdigit():
             return True
-        first = normalized.split(":", 1)[0]
-        if re.match(r"^(fc|fd)", first) or re.match(r"^fe[89ab]", first):
+        parts = normalized.split(".")
+        if all(part.isdigit() for part in parts):
+            return not bool(self._ipv4_parts(normalized))
+        return False
+
+    def _expand_ipv6(self, host: str) -> list[int]:
+        normalized = host.lower()
+        if normalized.count("::") > 1:
+            return []
+        if "." in normalized:
+            prefix, dotted = normalized.rsplit(":", 1)
+            dotted_parts = self._ipv4_parts(dotted)
+            if not dotted_parts:
+                return []
+            left = (dotted_parts[0] << 8) | dotted_parts[1]
+            right = (dotted_parts[2] << 8) | dotted_parts[3]
+            normalized = f"{prefix}:{left:x}:{right:x}"
+        if "::" in normalized:
+            left_raw, right_raw = normalized.split("::")
+            left = left_raw.split(":") if left_raw else []
+            right = right_raw.split(":") if right_raw else []
+            if any(not re.match(r"^[0-9a-f]{1,4}$", part) for part in left + right):
+                return []
+            missing = 8 - len(left) - len(right)
+            if missing < 1:
+                return []
+            parts = left + (["0"] * missing) + right
+        else:
+            parts = normalized.split(":")
+            if len(parts) != 8 or any(not re.match(r"^[0-9a-f]{1,4}$", part) for part in parts):
+                return []
+        return [int(part, 16) for part in parts]
+
+    def _is_private_ipv6(self, host: str) -> bool:
+        groups = self._expand_ipv6(host)
+        if len(groups) != 8:
             return True
-        if normalized.startswith("::ffff:"):
-            mapped = normalized[len("::ffff:"):]
-            if "." in mapped and self._is_private_ipv4(mapped):
+        if groups == [0, 0, 0, 0, 0, 0, 0, 0] or groups == [0, 0, 0, 0, 0, 0, 0, 1]:
+            return True
+        first = groups[0]
+        if (first & 0xfe00) == 0xfc00 or (first & 0xffc0) == 0xfe80:
+            return True
+        if groups[:5] == [0, 0, 0, 0, 0] and groups[5] == 0xffff:
+            mapped = f"{(groups[6] >> 8) & 255}.{groups[6] & 255}.{(groups[7] >> 8) & 255}.{groups[7] & 255}"
+            if self._is_private_ipv4(mapped):
                 return True
-            hex_parts = mapped.split(":")
-            if len(hex_parts) == 2 and all(re.match(r"^[0-9a-f]{1,4}$", part) for part in hex_parts):
-                left, right = int(hex_parts[0], 16), int(hex_parts[1], 16)
-                return self._is_private_ipv4(f"{left >> 8}.{left & 255}.{right >> 8}.{right & 255}")
         return False
 
     def _validate_evidence_url(self, raw: str) -> str:
@@ -146,9 +219,17 @@ class Accordant(gl.Contract):
         if "#" in url or "@" in url:
             raise gl.vm.UserError("Evidence URL must not contain credentials or fragments")
 
-        authority = url[8:].split("/", 1)[0].split("?", 1)[0]
+        rest = url[8:]
+        boundary = len(rest)
+        for marker in ("/", "?"):
+            position = rest.find(marker)
+            if position >= 0:
+                boundary = min(boundary, position)
+        authority = rest[:boundary]
+        suffix = rest[boundary:]
         if not authority:
             raise gl.vm.UserError("Evidence URL host is required")
+        bracketed = authority.startswith("[")
         if authority.startswith("["):
             closing = authority.find("]")
             if closing < 0:
@@ -157,6 +238,7 @@ class Accordant(gl.Contract):
             port = authority[closing + 1:]
             if port and (not port.startswith(":") or not port[1:].isdigit()):
                 raise gl.vm.UserError("Evidence URL port is malformed")
+            port_number = int(port[1:]) if port else 443
         else:
             if authority.count(":") > 1:
                 raise gl.vm.UserError("IPv6 evidence URLs must use brackets")
@@ -167,15 +249,23 @@ class Accordant(gl.Contract):
             else:
                 host = authority
             host = host.lower().rstrip(".")
+            port_number = int(port) if ":" in authority else 443
+
+        if port_number < 1 or port_number > 65535:
+            raise gl.vm.UserError("Evidence URL port is malformed")
+        if not host or self._is_numeric_host_form(host):
+            raise gl.vm.UserError("Evidence URL host is malformed")
 
         local_hostname = (
             host in ("localhost", "localhost.localdomain")
             or host.endswith(".local") or host.endswith(".internal")
         )
-        private_host = local_hostname or self._is_private_ipv4(host) or self._is_private_ipv6(host)
+        private_host = local_hostname or self._is_private_ipv4(host) or (":" in host and self._is_private_ipv6(host))
         if private_host or not host:
             raise gl.vm.UserError("Private or local evidence URL is not allowed")
-        return url
+        authority_host = f"[{host}]" if bracketed else host
+        normalized_port = "" if port_number == 443 else f":{port_number}"
+        return f"https://{authority_host}{normalized_port}{suffix}"
 
     @gl.public.write
     def create_engagement(self, performer: str, title: str, summary: str, criterion_texts: list[str], criterion_required: list[bool], proposal_deadline: u64, delivery_deadline: u64) -> str:
@@ -183,16 +273,14 @@ class Accordant(gl.Contract):
         perf = Address(performer)
         if perf == requester:
             raise gl.vm.UserError("Requester and performer must differ")
+        if perf.as_hex.lower() == ZERO_ADDRESS:
+            raise gl.vm.UserError("Performer cannot be the zero address")
         clean_title = self._clean_text(title, 4, MAX_TITLE_CHARS, "Title")
         clean_summary = self._clean_text(summary, 12, MAX_SUMMARY_CHARS, "Summary")
         if len(criterion_texts) != len(criterion_required):
             raise gl.vm.UserError("Criterion text/required arrays must match")
         if len(criterion_texts) < MIN_CRITERIA or len(criterion_texts) > MAX_CRITERIA:
             raise gl.vm.UserError("Use 2 to 7 criteria")
-        requester_ids = self.wallet_ids[requester] if requester in self.wallet_ids else []
-        performer_ids = self.wallet_ids[perf] if perf in self.wallet_ids else []
-        if len(requester_ids) >= MAX_WALLET_INDEX or len(performer_ids) >= MAX_WALLET_INDEX:
-            raise gl.vm.UserError("A wallet engagement index is full")
         now = self._now()
         if int(proposal_deadline) <= now:
             raise gl.vm.UserError("Proposal deadline must be in the future")
@@ -227,12 +315,8 @@ class Accordant(gl.Contract):
             status="PROPOSED", accepted_at=u64(0), attempt_count=u32(0), latest_result="",
             completed_at=u64(0), created_at=u64(now),
         )
-        req_ids = requester_ids
-        req_ids.append(engagement_id)
-        self.wallet_ids[requester] = req_ids
-        perf_ids = performer_ids
-        perf_ids.append(engagement_id)
-        self.wallet_ids[perf] = perf_ids
+        self._append_wallet_id("requester", requester, engagement_id)
+        self._append_wallet_id("performer", perf, engagement_id)
         return engagement_id
 
     @gl.public.write
@@ -255,6 +339,8 @@ class Accordant(gl.Contract):
             raise gl.vm.UserError("Engagement is not awaiting a response")
         if gl.message.sender_address != e.performer:
             raise gl.vm.UserError("Only the designated performer can decline")
+        if self._now() > int(e.proposal_deadline):
+            raise gl.vm.UserError("Proposal deadline has passed; only close_expired is valid")
         e.status = "DECLINED"
 
     @gl.public.write
@@ -264,6 +350,8 @@ class Accordant(gl.Contract):
             raise gl.vm.UserError("Accepted engagements cannot be cancelled")
         if gl.message.sender_address != e.requester:
             raise gl.vm.UserError("Only the requester can cancel")
+        if self._now() > int(e.proposal_deadline):
+            raise gl.vm.UserError("Proposal deadline has passed; only close_expired is valid")
         e.status = "CANCELLED"
 
     @gl.public.write
@@ -329,8 +417,11 @@ class Accordant(gl.Contract):
         if total == 0 or total > MAX_EVIDENCE_TOTAL:
             raise gl.vm.UserError("Use 1 to 10 evidence references")
 
+        canonical_evidence.sort(key=lambda item: (int(item["criterion"]), str(item["kind"]), str(item["url"])))
         canonical_payload = json.dumps(canonical_evidence, sort_keys=True, separators=(",", ":"))
-        submission_digest = hashlib.sha256((engagement_id + ":" + e.terms_digest + ":" + canonical_payload).encode("utf-8")).hexdigest()
+        semantic_evidence = [{"criterion": item["criterion"], "kind": item["kind"], "url": item["url"]} for item in canonical_evidence]
+        semantic_payload = json.dumps(semantic_evidence, sort_keys=True, separators=(",", ":"))
+        submission_digest = hashlib.sha256((engagement_id + ":" + e.terms_digest + ":" + semantic_payload).encode("utf-8")).hexdigest()
         replay_key = f"{engagement_id}:{submission_digest}"
         if self.seen_submissions.get(replay_key, False):
             raise gl.vm.UserError("This exact evidence submission was already evaluated")
@@ -424,7 +515,7 @@ Include every criterion exactly once and no extra indices."""
             their_vector = [(int(x["index"]), str(x["status"])) for x in theirs.get("decisions", [])]
             return mine.get("submission_digest") == theirs.get("submission_digest") and mine.get("result") == theirs.get("result") and mine_vector == their_vector
 
-        result = gl.vm.run_nondet_unsafe(assess, validator_fn)
+        result = gl.vm.run_nondet(assess, validator_fn)
         product_result = str(result.get("result", "INCONCLUSIVE"))
         decisions = result.get("decisions", [])
         expected_indices = list(range(len(criteria)))
@@ -492,13 +583,23 @@ Include every criterion exactly once and no extra indices."""
         page_size = int(limit)
         if page_size < 1 or page_size > MAX_PAGE_SIZE:
             raise gl.vm.UserError("Page size must be 1 to 20")
-        if address not in self.wallet_ids:
-            return {"ids": [], "next_offset": 0, "total": 0}
-        start = int(offset)
-        ids = self.wallet_ids[address]
-        total = len(ids)
-        end = min(start + page_size, total)
-        page = []
-        for index in range(start, end):
-            page.append(str(ids[index]))
-        return {"ids": page, "next_offset": end if end < total else 0, "total": total}
+        requester = self._read_wallet_page("requester", address, int(offset), page_size)
+        performer = self._read_wallet_page("performer", address, int(offset), page_size)
+        return {
+            "ids": requester["ids"], "next_offset": requester["next_offset"], "total": requester["total"],
+            "incoming_ids": performer["ids"], "incoming_next_offset": performer["next_offset"], "incoming_total": performer["total"],
+        }
+
+    @gl.public.view
+    def get_requester_engagements(self, wallet: str, offset: u32, limit: u32) -> dict:
+        page_size = int(limit)
+        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise gl.vm.UserError("Page size must be 1 to 20")
+        return self._read_wallet_page("requester", Address(wallet), int(offset), page_size)
+
+    @gl.public.view
+    def get_performer_engagements(self, wallet: str, offset: u32, limit: u32) -> dict:
+        page_size = int(limit)
+        if page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise gl.vm.UserError("Page size must be 1 to 20")
+        return self._read_wallet_page("performer", Address(wallet), int(offset), page_size)
