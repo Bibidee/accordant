@@ -124,11 +124,15 @@ export function attemptIdentityMatches(attempt: Attempt, expectedDigest: string,
   return attempt.submission_digest === expectedDigest && attempt.evidence_json === expectedEvidenceJson;
 }
 
-export function attemptStateIsConsistent(engagement: Engagement, attempt: Attempt, isLatestAttempt = attempt.number === engagement.attempt_count): boolean {
+export function attemptStateIsConsistent(engagement: Engagement, attempt: Attempt): boolean {
+  const isLatestAttempt = attempt.number === engagement.attempt_count;
   if (attempt.result === "ACCEPTED") return isLatestAttempt && engagement.status === "COMPLETED" && engagement.latest_result === "ACCEPTED";
   if (attempt.result !== "REVISION_REQUIRED" && attempt.result !== "INCONCLUSIVE") return false;
-  if (isLatestAttempt) return engagement.status === "ACTIVE" && engagement.latest_result === attempt.result;
-  return engagement.status === "ACTIVE" || engagement.status === "COMPLETED";
+  if (isLatestAttempt) {
+    return (engagement.status === "ACTIVE" || engagement.status === "EXPIRED")
+      && engagement.latest_result === attempt.result;
+  }
+  return engagement.status === "ACTIVE" || engagement.status === "COMPLETED" || engagement.status === "EXPIRED";
 }
 
 export function canonicalAttemptMatch(input: {

@@ -203,7 +203,7 @@ describe("canonical frozen terms and evidence", () => {
     const engagement = { status: "ACTIVE", latest_result: "INCONCLUSIVE", attempt_count: 4 } as Engagement;
     expect(found?.number).toBe(3);
     expect(attemptIdentityMatches(userAttempt, "digest-B", "evidence-B")).toBe(true);
-    expect(attemptStateIsConsistent(engagement, userAttempt, false)).toBe(true);
+    expect(attemptStateIsConsistent(engagement, userAttempt)).toBe(true);
     expect(canonicalAttemptMatch({ engagement, attempt: userAttempt, expectedDigest: "digest-B", expectedEvidenceJson: "evidence-B" })).toBe(true);
   });
 
@@ -212,6 +212,42 @@ describe("canonical frozen terms and evidence", () => {
     const accepted = { number: 3, submission_digest: "digest-A", evidence_json: "evidence-A", result: "ACCEPTED", decisions_json: "[]", submitted_at: 1 } as Attempt;
     expect(attemptStateIsConsistent({ status: "ACTIVE", latest_result: "REVISION_REQUIRED", attempt_count: 3 } as Engagement, revision)).toBe(true);
     expect(attemptStateIsConsistent({ status: "COMPLETED", latest_result: "ACCEPTED", attempt_count: 3 } as Engagement, accepted)).toBe(true);
+  });
+
+  it("keeps a latest inconclusive attempt canonical after expiry", () => {
+    const attempt = { number: 3, submission_digest: "digest-I", evidence_json: "evidence-I", result: "INCONCLUSIVE", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "EXPIRED", latest_result: "INCONCLUSIVE", attempt_count: 3 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-I", expectedEvidenceJson: "evidence-I" })).toBe(true);
+  });
+
+  it("keeps a latest revision-required attempt canonical after expiry", () => {
+    const attempt = { number: 3, submission_digest: "digest-R", evidence_json: "evidence-R", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "EXPIRED", latest_result: "REVISION_REQUIRED", attempt_count: 3 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-R", expectedEvidenceJson: "evidence-R" })).toBe(true);
+  });
+
+  it("keeps a historical revision-required attempt canonical after a later attempt expires", () => {
+    const attempt = { number: 3, submission_digest: "digest-R", evidence_json: "evidence-R", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "EXPIRED", latest_result: "INCONCLUSIVE", attempt_count: 4 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-R", expectedEvidenceJson: "evidence-R" })).toBe(true);
+  });
+
+  it("keeps a historical inconclusive attempt canonical after a later accepted attempt", () => {
+    const attempt = { number: 3, submission_digest: "digest-I", evidence_json: "evidence-I", result: "INCONCLUSIVE", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "COMPLETED", latest_result: "ACCEPTED", attempt_count: 4 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-I", expectedEvidenceJson: "evidence-I" })).toBe(true);
+  });
+
+  it("rejects a latest non-accepted attempt paired with completed status", () => {
+    const attempt = { number: 3, submission_digest: "digest-R", evidence_json: "evidence-R", result: "REVISION_REQUIRED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "COMPLETED", latest_result: "REVISION_REQUIRED", attempt_count: 3 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-R", expectedEvidenceJson: "evidence-R" })).toBe(false);
+  });
+
+  it("rejects an accepted attempt that is historical", () => {
+    const attempt = { number: 3, submission_digest: "digest-A", evidence_json: "evidence-A", result: "ACCEPTED", decisions_json: "[]", submitted_at: 1 } as Attempt;
+    const engagement = { status: "COMPLETED", latest_result: "ACCEPTED", attempt_count: 4 } as Engagement;
+    expect(canonicalAttemptMatch({ engagement, attempt, expectedDigest: "digest-A", expectedEvidenceJson: "evidence-A" })).toBe(false);
   });
 
   it("fails closed for no match, duplicate match, and an unchanged attempt count", async () => {
