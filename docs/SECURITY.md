@@ -31,3 +31,15 @@ Mitigation: protocol `UNDETERMINED` must not be stored or shown as ACCORDANT `IN
 
 ### Frontend authority
 Mitigation: UI state is never authoritative. Refresh must reconstruct engagement and attempt state from the contract.
+
+### Address and URL abuse
+Mitigation: the contract and frontend reject the zero address, enforce HTTPS evidence URLs, reject credentials/fragments/private and numeric-host forms, and reject ports outside `1–65535` before a source is accepted.
+
+### Semantic replay and evidence ordering
+Mitigation: replay identity canonicalizes criterion/kind/normalized URL tuples, ignores non-semantic notes, and sorts evidence before hashing so equivalent submissions cannot bypass the retry guard through ordering or note changes.
+
+### Unbounded history growth
+Mitigation: requester and performer indexes are append-only but page-addressable. Reads use explicit offsets and limits instead of a fixed wallet-entry cap, while contract writes preserve the canonical count.
+
+### Signing and transaction lifecycle
+Mitigation: the frontend uses one pending guard per action, separates protocol transaction states from product outcomes, exposes transaction hashes only after submission, and polls canonical contract state after finalization.

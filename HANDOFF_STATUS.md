@@ -4,4 +4,4 @@ The implementation and production handoff are complete for the browser/client an
 
 The production URL is https://accordant.vercel.app. Desktop/mobile route verification and the final production configuration are recorded in `docs/DEPLOYMENT.md`.
 
-Studionet deployment used repository-local GenLayer CLI 0.39.1 and finalized successfully. Contract: `0xa802181825D027b08141716617E9d6Bf0dEfb16d`. Deployment transaction: `0x4d7be47b7837e5ddbdb54ad8ea06f8bf5de9d1f895169cf5ef4b9653fbaab9d1`. The live two-wallet lifecycle suite and production browser verification are recorded in `docs/DEPLOYMENT.md`.
+Studionet deployment used repository-local GenLayer CLI 0.39.1 and finalized successfully. Contract: `0x838D981244760a4A70c315311908347DEc953e8B`. Deployment transaction: `0x8665e86628f5d5bf32e2fa86cddef7e38766bfef99da6c9ab54d7e87d9ca75dd`. The live two-wallet lifecycle suite and production browser verification are recorded in `docs/DEPLOYMENT.md`.
