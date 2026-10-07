@@ -20,7 +20,9 @@ This file records facts observed while building, deploying, and verifying the cu
 - Local storage contains only transaction recovery pointers; canonical engagement and attempt state is read from the contract.
 - There is no application backend, database, server signer, API route, Server Action, queue, or centralized outcome service.
 - Requester-created, performer-incoming, and performer-accepted indexes are separate, append-only, page-addressable contract views.
-- The `/work` route reads one page of each role-specific view at a time and requires explicit `Load more` actions for older pages.
+- The `/work` route reads one bounded latest-first page of each role-specific view at a time and requires explicit `Load older` actions for older pages.
+- Latest windows are calculated from each index total; final partial pages use the exact remaining limit so records are neither skipped nor duplicated.
+- Pagination commits are guarded by both the wallet used for the request and a request-generation counter, so stale account reads cannot contaminate a newly selected wallet.
 
 ## Contract deployment
 
@@ -57,7 +59,7 @@ The following checks passed locally:
 - `npm run network:check` — Studionet 61999 only.
 - `npm run typecheck`.
 - `npm run lint`.
-- `npm run test` — 5 UI tests.
+- `npm run test` — 17 UI tests, including latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, attempt matching, terminal transaction branches, and finalized receipt refresh.
 - `npm run build` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
 - Full `npm audit --audit-level=high` — 10 development-tree vulnerabilities (3 moderate, 5 high, 2 critical) remain in Vitest/tinypool, braces through Next ESLint tooling, and dockerode’s nested uuid. No `npm audit fix --force` was applied because the suggested fixes include breaking dependency changes.
@@ -112,6 +114,6 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 ## Provenance and remaining manual check
 
-The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are documentation, environment binding, and lifecycle-runner cleanup; `contracts/accordant.py` is unchanged after that deployment commit.
+The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, and lifecycle-runner cleanup; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
 
 The only unperformed verification is the exact interactive `390x844` browser viewport check because the Windows browser automation helper failed to initialize. No contract or lifecycle evidence is being fabricated for that gap.

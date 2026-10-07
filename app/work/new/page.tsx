@@ -7,6 +7,7 @@ import { useWallet } from "@/components/WalletContext";
 import { validatePerformerAddress } from "@/lib/validation";
 import { TransactionNotice } from "@/components/TransactionNotice";
 import type { Engagement, EngagementPage } from "@/lib/types";
+import { CANONICAL_VERIFICATION_ERROR, canonicalFrozenTerms, computeTermsDigest, frozenTermsMatch, type FrozenTerms } from "@/lib/canonical";
 
 type CriterionDraft = { text: string; required: boolean };
 const blank = (): CriterionDraft => ({ text: "", required: true });
@@ -24,7 +25,7 @@ export default function NewWork() {
   const [canonical, setCanonical] = useState("");
   const [signing, setSigning] = useState(false);
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
-  const pendingTerms = useRef<{ requester: string; performer: string; title: string; summary: string; proposal: number; delivery: number } | null>(null);
+  const pendingTerms = useRef<{ terms: FrozenTerms; preCreationRequesterCount: number; termsDigest: string } | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
@@ -62,8 +63,11 @@ export default function NewWork() {
       if (!accounts[0]) throw new Error("Connect the requester wallet before signing the proposal.");
       const proposal = Math.floor(Date.parse(proposalDeadline) / 1000);
       const delivery = Math.floor(Date.parse(deliveryDeadline) / 1000);
-      pendingTerms.current = { requester: accounts[0].toLowerCase(), performer: performer.trim().toLowerCase(), title: title.trim(), summary: summary.trim(), proposal, delivery };
-      const tx = await writeContract("create_engagement", [performer.trim(), title.trim(), summary.trim(), criteria.map((c) => c.text.trim()), criteria.map((c) => c.required), proposal, delivery], accounts[0], window.ethereum!);
+      const terms = canonicalFrozenTerms({ requester: accounts[0], performer, title, summary, criteria, proposalDeadline: proposal, deliveryDeadline: delivery });
+      const termsDigest = await computeTermsDigest(terms);
+      const preCreation = await readContract<EngagementPage>("get_requester_engagements", [terms.requester, 0, 1]);
+      pendingTerms.current = { terms, preCreationRequesterCount: preCreation.total || 0, termsDigest };
+      const tx = await writeContract("create_engagement", [terms.performer, terms.title, terms.summary, terms.criteria.map((c) => c.text), terms.criteria.map((c) => c.required), terms.proposalDeadline, terms.deliveryDeadline], accounts[0], window.ethereum!);
       setHash(tx);
     } catch (e) {
       setSigning(false);
@@ -76,16 +80,28 @@ export default function NewWork() {
   }
 
   async function confirmCanonicalCreation() {
-    if (!pendingTerms.current) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
-    const expected = pendingTerms.current;
-    const first = await readContract<EngagementPage>("get_requester_engagements", [expected.requester, 0, 20]);
-    const offset = Math.max(0, first.total - 20);
-    const page = offset === 0 ? first : await readContract<EngagementPage>("get_requester_engagements", [expected.requester, offset, 20]);
-    const candidates = await Promise.all((page.ids || []).map((id) => readContract<Engagement>("get_engagement", [String(id)])));
-    const found = candidates.find((item) => item.requester.toLowerCase() === expected.requester && item.performer.toLowerCase() === expected.performer && item.title === expected.title && item.summary === expected.summary && item.proposal_deadline === expected.proposal && item.delivery_deadline === expected.delivery && item.status === "PROPOSED");
-    if (!found) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
-    setCanonical("Canonical state verified: proposal " + found.id + " is PROPOSED on Studionet.");
-    setSigning(false);
+    try {
+      if (!pendingTerms.current) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      const expected = pendingTerms.current;
+      const latest = await readContract<EngagementPage>("get_requester_engagements", [expected.terms.requester, 0, 1]);
+      if ((latest.total || 0) <= expected.preCreationRequesterCount) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      const matches: Engagement[] = [];
+      let offset = expected.preCreationRequesterCount;
+      while (offset < (latest.total || 0)) {
+        const page = await readContract<EngagementPage>("get_requester_engagements", [expected.terms.requester, offset, 20]);
+        const candidates = await Promise.all((page.ids || []).map((id) => readContract<Engagement>("get_engagement", [String(id)])));
+        matches.push(...candidates.filter((item) => frozenTermsMatch(item, expected.terms, expected.termsDigest)));
+        if (!page.ids?.length) break;
+        offset += page.ids.length;
+      }
+      if (matches.length !== 1) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      const found = matches[0];
+      setCanonical("Canonical state verified: proposal " + found.id + " is PROPOSED on Studionet.");
+      setSigning(false);
+    } catch (e) {
+      setSigning(false);
+      throw e;
+    }
   }
 
   return <section className="doc">

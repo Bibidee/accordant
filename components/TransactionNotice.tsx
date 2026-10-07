@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EXPLORER_URL } from "@/lib/constants";
 import { getTransaction, monitorTransaction, type TransactionRecord } from "@/lib/genlayer";
 import type { TxPhase } from "@/lib/types";
+import { SUCCESS_STAGES, transactionRailState } from "@/lib/transaction";
 
 type Props = {
   hash: string;
@@ -13,16 +14,6 @@ type Props = {
   onPhase?: (phase: TxPhase) => void;
 };
 
-type RailKey = TxPhase | "CANONICAL_VERIFIED";
-const successStages: Array<{ key: RailKey; label: string }> = [
-  { key: "AWAITING_SIGNATURE", label: "Awaiting signature" },
-  { key: "SUBMITTED", label: "Submitted" },
-  { key: "CONSENSUS", label: "Consensus" },
-  { key: "ACCEPTED_PROVISIONAL", label: "Accepted provisional" },
-  { key: "FINALIZED", label: "Finalized" },
-  { key: "CANONICAL_VERIFIED", label: "Canonical state verified" },
-];
-const failurePhases = new Set<TxPhase>(["FAILED", "CANCELED", "UNDETERMINED", "MONITORING_STOPPED"]);
 
 function failureMessage(phase: TxPhase) {
   if (phase === "CANCELED") return "The protocol canceled this transaction. No product state was inferred.";
@@ -79,15 +70,16 @@ export function TransactionNotice({ hash, label, onFinalized, onPhase }: Props) 
   }
 
   const protocolPhase = record?.phase || (hash ? "SUBMITTED" : "AWAITING_SIGNATURE");
-  const current: RailKey = canonicalVerified ? "CANONICAL_VERIFIED" : protocolPhase;
-  const isFailure = failurePhases.has(protocolPhase);
-  const currentIndex = successStages.findIndex((stage) => stage.key === current);
+  const rail = transactionRailState(protocolPhase, canonicalVerified);
+  const current = rail.current;
+  const isFailure = rail.terminalFailure;
+  const currentIndex = SUCCESS_STAGES.findIndex((stage) => stage.key === current);
 
   return <div className="txNotice panel">
     <div className="eyebrow">Transaction receipt</div>
     <strong>{label}</strong>
     {hash ? <p className="mono">{hash}</p> : <p className="muted">No hash yet. Waiting for the wallet to approve this action.</p>}
-    {isFailure ? <div className="txTerminal" role="status"><strong>{protocolPhase}</strong><p>{failureMessage(protocolPhase)}</p></div> : <div className="txRail" aria-label={`Transaction lifecycle: ${current}`}>{successStages.map((stage, index) => <div className={`txStage ${current === stage.key ? "current" : index < currentIndex ? "done" : ""}`} key={stage.key}>{stage.label}</div>)}</div>}
+    {isFailure ? <div className="txTerminal" role="status"><strong>{protocolPhase}</strong><p>{failureMessage(protocolPhase)}</p></div> : <div className="txRail" aria-label={`Transaction lifecycle: ${current}`}>{SUCCESS_STAGES.map((stage, index) => <div className={`txStage ${current === stage.key ? "current" : index < currentIndex ? "done" : ""}`} key={stage.key}>{stage.label}</div>)}</div>}
     {record ? <p className="receiptMeta muted"><strong>{record.phase}</strong><span>Protocol: {record.protocolStatus}{record.executionStatus ? ` · execution ${record.executionStatus}` : ""}</span></p> : <p className="muted">Submitted hash saved. Consensus and finality are read from GenLayer, never inferred locally.</p>}
     {canonicalPending && <p className="warning">Finalized. Reading the canonical Accordant state before confirming this action…</p>}
     {record?.phase === "FINALIZED" && !canonicalVerified && !canonicalPending && <p className="warning">Transaction finalized, but canonical state is not yet verified. Reconcile this exact hash before retrying.</p>}

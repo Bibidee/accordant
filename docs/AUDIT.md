@@ -15,9 +15,11 @@ The baseline findings below are retained as historical context. The current stat
 ## Frontend findings
 
 - The shell exposes role-specific work sections, public reads, and responsive route layouts.
-- Work pages load one bounded page per role and require explicit `Load more`; they do not enumerate a wallet’s complete history.
+- Work pages load one bounded latest-first page per role and require explicit `Load older`; they do not enumerate a wallet’s complete history or bury recent work behind the oldest records.
+- The final partial older page requests only its exact remaining count, and wallet/version guards reject stale asynchronous page results.
 - Transaction UI has separate success and failure rails and a distinct canonical-state-verified step.
 - Manual receipt refresh and polling share the same finalized/canonical readback path.
+- Creation readback checks the pre-write requester count, full frozen terms, criteria order/required flags, status, and terms digest. Evidence readback checks a fresh attempt count, canonical stored evidence JSON, submission digest, result, and resulting engagement status.
 - Frontend evidence URL validation remains aligned with the contract boundary.
 
 ## Verification findings

@@ -7,6 +7,7 @@ import { useWallet } from "@/components/WalletContext";
 import type { AttemptPage, Engagement, EvidenceKind, EvidenceRef, TxPhase } from "@/lib/types";
 import { validateEvidenceRefs } from "@/lib/validation";
 import { TransactionNotice } from "@/components/TransactionNotice";
+import { CANONICAL_VERIFICATION_ERROR, canonicalAttemptMatch, computeSubmissionDigest } from "@/lib/canonical";
 
 const kinds: EvidenceKind[] = ["VERSIONED_SOURCE", "TRANSACTION", "PUBLIC_ARTIFACT", "LIVE_DEPLOYMENT"];
 
@@ -19,7 +20,7 @@ export default function SubmitPage({ params }: { params: Promise<{ engagementId:
   const [error, setError] = useState("");
   const [canonical, setCanonical] = useState("");
   const [signing, setSigning] = useState(false);
-  const expectedAttempt = useRef<number | null>(null);
+  const pendingAttempt = useRef<{ number: number; digest: string; evidenceJson: string; account: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +52,13 @@ export default function SubmitPage({ params }: { params: Promise<{ engagementId:
     try {
       const accounts = account ? [account] : await connect();
       if (!accounts[0]) throw new Error("Connect the performer wallet before signing evidence.");
-      expectedAttempt.current = item.attempt_count + 1;
+      const fresh = await readContract<Engagement>("get_engagement", [engagementId]);
+      if (fresh.status !== "ACTIVE") throw new Error("This engagement is no longer ACTIVE. Refresh the canonical agreement before submitting.");
+      if (fresh.performer.toLowerCase() !== accounts[0].toLowerCase()) throw new Error("The connected wallet is not the designated performer for this engagement.");
+      const expectedAttempt = fresh.attempt_count + 1;
+      const expectedEvidence = await computeSubmissionDigest(engagementId, fresh.terms_digest, payload);
+      pendingAttempt.current = { number: expectedAttempt, digest: expectedEvidence.digest, evidenceJson: expectedEvidence.storedJson, account: accounts[0].toLowerCase() };
+      setItem(fresh);
       const tx = await writeContract("evaluate_attempt", [engagementId, JSON.stringify(payload)], accounts[0], window.ethereum!);
       setHash(tx);
     } catch (e) {
@@ -61,18 +68,22 @@ export default function SubmitPage({ params }: { params: Promise<{ engagementId:
   }
 
   async function confirmCanonicalAttempt() {
-    const expected = expectedAttempt.current;
-    if (!expected) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
-    const engagement = await readContract<Engagement>("get_engagement", [engagementId]);
-    if (engagement.attempt_count < expected) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
-    const offset = Math.floor((expected - 1) / 20) * 20;
-    const page = await readContract<AttemptPage>("get_attempts", [engagementId, offset, 20]);
-    const attempt = page.items?.find((entry) => entry.number === expected);
-    const expectedStatus = attempt?.result === "ACCEPTED" ? "COMPLETED" : "ACTIVE";
-    if (!attempt || engagement.latest_result !== attempt.result || engagement.status !== expectedStatus) throw new Error("Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.");
-    setItem(engagement);
-    setCanonical("Canonical state verified: attempt " + attempt.number + " · " + attempt.result + " · engagement " + engagement.status + ".");
-    setSigning(false);
+    try {
+      const expected = pendingAttempt.current;
+      if (!expected) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      const engagement = await readContract<Engagement>("get_engagement", [engagementId]);
+      if (engagement.attempt_count < expected.number) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      const offset = Math.floor((expected.number - 1) / 20) * 20;
+      const page = await readContract<AttemptPage>("get_attempts", [engagementId, offset, 20]);
+      const attempt = page.items?.find((entry) => entry.number === expected.number);
+      if (!canonicalAttemptMatch(engagement, attempt, expected.number, expected.digest, expected.evidenceJson) || !attempt) throw new Error(CANONICAL_VERIFICATION_ERROR);
+      setItem(engagement);
+      setCanonical("Canonical state verified: attempt " + attempt.number + " · " + attempt.result + " · engagement " + engagement.status + ".");
+      setSigning(false);
+    } catch (e) {
+      setSigning(false);
+      throw e;
+    }
   }
   function onPhase(phase: TxPhase) { if (["FAILED", "UNDETERMINED", "CANCELED", "MONITORING_STOPPED"].includes(phase)) setSigning(false); }
 
