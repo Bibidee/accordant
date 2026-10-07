@@ -163,6 +163,16 @@ describe("canonical frozen terms and evidence", () => {
     await expect(computeTermsDigest(terms)).resolves.toBe("070bac1d584d5c7f1744f95c6b7caef0a58a36607595b5d29684315d6aaf6eb2");
   });
 
+  it("uses contract-compatible checksum addresses for mixed-case wallet input", async () => {
+    const mixedCase = canonicalFrozenTerms({
+      ...terms,
+      requester: "0xff203bb65942f50cb81a8af98c5f5bd9d8a79b54",
+      performer: "0x3c4c71d8c449471acc31ad59187231001856655c",
+    });
+    expect(mixedCase.requester).toBe("0xFf203Bb65942F50CB81A8AF98c5F5bd9d8a79b54");
+    expect(mixedCase.performer).toBe("0x3c4c71D8C449471acC31AD59187231001856655C");
+  });
+
   it("requires every frozen term and criterion position to match", async () => {
     const digest = await computeTermsDigest(terms);
     const engagement = {

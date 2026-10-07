@@ -1,5 +1,6 @@
 import type { Attempt, AttemptPage, Criterion, Engagement, EvidenceRef, ProductResult } from "@/lib/types";
 import { normalizeEvidenceUrl } from "@/lib/validation";
+import { getAddress } from "viem";
 
 export const CANONICAL_VERIFICATION_ERROR = "Transaction finalized, but canonical state could not yet be verified. Reconcile this exact hash before retrying.";
 
@@ -23,8 +24,8 @@ export function canonicalFrozenTerms(input: {
   deliveryDeadline: number;
 }): FrozenTerms {
   return {
-    requester: input.requester.trim().toLowerCase(),
-    performer: input.performer.trim().toLowerCase(),
+    requester: getAddress(input.requester.trim()),
+    performer: getAddress(input.performer.trim()),
     title: input.title.trim(),
     summary: input.summary.trim(),
     criteria: input.criteria.map((criterion, index) => ({ index, text: criterion.text.trim(), required: Boolean(criterion.required) })),
