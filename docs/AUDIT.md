@@ -11,6 +11,10 @@ The baseline findings below are retained as historical context. The current stat
 - Attempt history is capped at 50 attempts and exposed through bounded pages.
 - Writes verify Studionet chain `61999`; reads and writes use the configured deployed contract.
 - Malformed or incomplete validator vectors fail closed, and required criterion status determines product-result precedence.
+- Engagement creation is payable and records exact GEN escrow, frozen evidence policy, and challenge-window terms in the terms digest.
+- Held, claimable, pending-transfer, withdrawn, and refunded balances are tracked separately; payout/refund/closure transfers require recipient confirmation before accounting becomes final.
+- Participants can challenge an accepted attempt during the bounded challenge window; upheld challenges return the engagement to `ACTIVE` and restore funds to `HELD`.
+- Mutual closure requires both participant approvals over an exact allocation digest and separate recipient confirmation for each emitted transfer.
 
 ## Frontend findings
 
@@ -23,15 +27,18 @@ The baseline findings below are retained as historical context. The current stat
 - Canonical reconciliation preserves valid `REVISION_REQUIRED` and `INCONCLUSIVE` receipts after a later legitimate `EXPIRED` lifecycle transition. Latest non-accepted attempts require matching `latest_result`; historical non-accepted attempts remain valid across `ACTIVE`, `COMPLETED`, and `EXPIRED` states.
 - Latest-first page reads compare the count probe with the returned page total and recalculate the latest window at most once, preserving a bounded one-count/two-page read budget even when more records arrive during the retry.
 - Frontend evidence URL validation remains aligned with the contract boundary.
+- The new-engagement composer accepts exact decimal GEN amounts, passes payable value to `genlayer-js`, and freezes the evidence policy and challenge window before signing.
+- Agreement pages expose escrow ledger state, challenge controls, payout/refund confirmations, and mutual-closure approval/transfer confirmation without treating a protocol receipt as economic settlement.
 
 ## Verification findings
 
 - `tests/direct/test_accordant.py` exercises the production contract source in Direct Mode, including 121-record pagination, role integrity, malformed criterion inputs, and lifecycle outcomes.
 - GitHub Actions remains split into Web, Direct Mode, Production dependency audit, and Required CI gate jobs.
-- The frontend regression suite has 45 passing UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, concurrent appended-attempt reconciliation, historical/latest attempt semantics, duplicate/no-match fail-closed cases, count/fetch pagination races, and the active-only evidence-desk gate.
+- The frontend regression suite has 47 passing UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, concurrent appended-attempt reconciliation, historical/latest attempt semantics, duplicate/no-match fail-closed cases, count/fetch pagination races, finalized-unverified handling, and the active-only evidence-desk gate.
+- Direct Mode has 13 passing contract tests covering escrow funding, pending transfer confirmations, challenge outcomes, policy enforcement, mutual closure, role authorization, malformed evidence, retries, pagination, and expiry.
 - Full development and production npm audits now report `found 0 vulnerabilities`; the deploy CLI is isolated from the frontend dependency tree and the lint stack no longer uses the vulnerable Next ESLint bundle.
 - GitHub Actions uses Node 24-compatible action majors, and the active `Protect master` ruleset (ID `24645498`) requires all four CI checks while blocking deletion and non-fast-forward updates.
 - The protected master ruleset requires all four CI checks; current master verification should always refer to the latest successful protected-master workflow rather than a fixed historical run number. The production deployment is recorded in `docs/DEPLOYMENT.md`.
-- The changed contract was freshly deployed at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E` from source commit `48281c7df1af71086017c7425c0315cf195f2510` and source SHA `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`.
+- The final economic contract was freshly deployed at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620` with deployment transaction `0xd4d089eae93409b9c89362a8bc19cd60c6a68565308a2cbcb3efd69521aafba4` and source SHA `B687E24AD9FCEBAC8D9A9E1FEDEE614C2E2E12550BA1C478CBCDDAAB7EB5EA05`.
 
-The changed-contract deployment requirement is satisfied. The previous address `0x838D981244760a4A70c315311908347DEc953e8B` is superseded and is not a current production binding.
+The changed-contract deployment requirement is satisfied. Previous deployment addresses are superseded and are not current production bindings.

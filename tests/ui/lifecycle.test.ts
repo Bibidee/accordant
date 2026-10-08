@@ -160,7 +160,7 @@ describe("canonical frozen terms and evidence", () => {
 
   it("matches the contract terms digest fixture", async () => {
     expect(canonicalJson({ z: "é", a: 1 })).toBe('{"a":1,"z":"\\u00e9"}');
-    await expect(computeTermsDigest(terms)).resolves.toBe("070bac1d584d5c7f1744f95c6b7caef0a58a36607595b5d29684315d6aaf6eb2");
+    await expect(computeTermsDigest(terms)).resolves.toBe("c81b3cec3baca6f25d81f0dca726fa4d93ac8e37c1cd20f65e456bca592f5761");
   });
 
   it("uses contract-compatible checksum addresses for mixed-case wallet input", async () => {
@@ -175,6 +175,7 @@ describe("canonical frozen terms and evidence", () => {
     expect(frozenTermsMatch({
       id: "18", requester: mixedCase.requester, performer: mixedCase.performer, title: mixedCase.title, summary: mixedCase.summary,
       criteria: mixedCase.criteria, terms_digest: digest, proposal_deadline: mixedCase.proposalDeadline, delivery_deadline: mixedCase.deliveryDeadline,
+      evidence_policy_json: mixedCase.evidencePolicyJson, challenge_window_seconds: mixedCase.challengeWindowSeconds, escrow_amount: Number(mixedCase.escrowAmountWei),
       status: "PROPOSED", accepted_at: 0, attempt_count: 0, latest_result: "", completed_at: 0, created_at: 1,
     } as Engagement, mixedCase, digest)).toBe(true);
   });
@@ -184,6 +185,7 @@ describe("canonical frozen terms and evidence", () => {
     const engagement = {
       id: "7", requester: terms.requester, performer: terms.performer, title: terms.title, summary: terms.summary,
       criteria: terms.criteria, terms_digest: digest, proposal_deadline: terms.proposalDeadline, delivery_deadline: terms.deliveryDeadline,
+      evidence_policy_json: terms.evidencePolicyJson, challenge_window_seconds: terms.challengeWindowSeconds, escrow_amount: Number(terms.escrowAmountWei),
       status: "PROPOSED", accepted_at: 0, attempt_count: 0, latest_result: "", completed_at: 0, created_at: 1,
     } as Engagement;
     expect(frozenTermsMatch(engagement, terms, digest)).toBe(true);

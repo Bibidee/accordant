@@ -1,17 +1,21 @@
 export type Criterion = { index: number; text: string; required: boolean };
 export type CriterionStatus = "MET" | "NOT_MET" | "UNVERIFIABLE";
 export type ProductResult = "ACCEPTED" | "REVISION_REQUIRED" | "INCONCLUSIVE" | "";
-export type EngagementStatus = "PROPOSED" | "ACTIVE" | "COMPLETED" | "DECLINED" | "CANCELLED" | "EXPIRED";
+export type EngagementStatus = "PROPOSED" | "ACTIVE" | "COMPLETED" | "DECLINED" | "CANCELLED" | "EXPIRED" | "CLOSED";
 export type Engagement = {
   id: string; requester: string; performer: string; title: string; summary: string;
   criteria: Criterion[]; terms_digest: string; proposal_deadline: number; delivery_deadline: number;
   status: EngagementStatus; accepted_at: number; attempt_count: number; latest_result: ProductResult;
   completed_at: number; created_at: number;
+  evidence_policy_json: string; challenge_window_seconds: number; challenge_deadline: number;
+  challenge_count: number; escrow_amount: number; held_amount: number; claimable_amount: number;
+  withdrawn_amount: number; refunded_amount: number; pending_requester_amount: number;
+  pending_performer_amount: number; settlement_state: string;
 };
 export type EvidenceKind = "VERSIONED_SOURCE" | "TRANSACTION" | "PUBLIC_ARTIFACT" | "LIVE_DEPLOYMENT";
 export type EvidenceRef = { criterion: number; kind: EvidenceKind; url: string; note?: string };
-export type TxPhase = "IDLE" | "AWAITING_SIGNATURE" | "SUBMITTED" | "CONSENSUS" | "ACCEPTED_PROVISIONAL" | "FINALIZED" | "UNDETERMINED" | "CANCELED" | "MONITORING_STOPPED" | "FAILED";
-export type Attempt = { number: number; submission_digest: string; evidence_json: string; result: Exclude<ProductResult, "">; decisions_json: string; submitted_at: number };
+export type TxPhase = "IDLE" | "AWAITING_SIGNATURE" | "SUBMITTED" | "CONSENSUS" | "ACCEPTED_PROVISIONAL" | "FINALIZATION_PENDING" | "FINALIZED" | "FINALIZED_UNVERIFIED" | "UNDETERMINED" | "CANCELED" | "MONITORING_STOPPED" | "FAILED" | "PAYOUT_TRANSFER_PENDING" | "PAYOUT_VERIFIED";
+export type Attempt = { number: number; submission_digest: string; evidence_json: string; result: Exclude<ProductResult, "">; decisions_json: string; evidence_fingerprint?: string; semantic_key?: string; submitted_at: number };
 export type EngagementPage = {
   ids: string[];
   next_offset: number;
@@ -24,3 +28,5 @@ export type EngagementPage = {
   performer_total?: number;
 };
 export type AttemptPage = { items: Attempt[]; next_offset: number; total: number };
+export type Closure = { nonce: number; requester_amount: number; performer_amount: number; digest: string; requester_approved: boolean; performer_approved: boolean; requester_transfer_confirmed: boolean; performer_transfer_confirmed: boolean; status: string; created_at: number; executed_at: number };
+export type ChallengePage = { items: Array<{ number: number; attempt_number: number; criterion_index: number; challenger: string; evidence_json: string; challenge_digest: string; result: string; status: string; evidence_fingerprint: string; created_at: number; resolved_at: number }>; next_offset: number; total: number };

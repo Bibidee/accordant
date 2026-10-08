@@ -24,17 +24,18 @@ def _hex(address):
     return address.as_hex if hasattr(address, "as_hex") else "0x" + bytes(address).hex()
 
 
-def _create(contract, vm, requester, performer, *, criteria=None, required=None, title="A bounded milestone", summary="A concrete delivery with public evidence", proposal=PROPOSAL, delivery=DELIVERY):
+def _create(contract, vm, requester, performer, *, criteria=None, required=None, title="A bounded milestone", summary="A concrete delivery with public evidence", proposal=PROPOSAL, delivery=DELIVERY, policy='{"criteria":[],"version":1}', challenge_window=3600, value=10**18):
     if criteria is None:
         criteria = _criteria()
     if required is None:
         required = [True] * len(criteria)
     vm.sender = requester
-    return contract.create_engagement(_hex(performer), title, summary, criteria, required, proposal, delivery)
+    vm.value = value
+    return contract.create_engagement(_hex(performer), title, summary, criteria, required, proposal, delivery, policy, challenge_window)
 
 
-def _active(contract, vm, alice, bob, *, criteria=None, required=None):
-    engagement_id = _create(contract, vm, alice, bob, criteria=criteria, required=required)
+def _active(contract, vm, alice, bob, *, criteria=None, required=None, policy='{"criteria":[],"version":1}', challenge_window=3600):
+    engagement_id = _create(contract, vm, alice, bob, criteria=criteria, required=required, policy=policy, challenge_window=challenge_window)
     vm.sender = bob
     contract.accept_engagement(engagement_id)
     return engagement_id
@@ -102,6 +103,9 @@ def test_creation_bounds_authentication_and_immutability(direct_vm, direct_deplo
     direct_vm.sender = direct_alice
     contract.cancel_proposal(engagement_id)
     assert contract.get_engagement(engagement_id)["status"] == "CANCELLED"
+    assert contract.get_engagement(engagement_id)["settlement_state"] == "REFUND_TRANSFER_PENDING"
+    contract.confirm_refund(engagement_id)
+    assert contract.get_engagement(engagement_id)["settlement_state"] == "REFUNDED"
 
 
 def test_acceptance_roles_deadlines_and_terminal_states(direct_vm, direct_deploy, direct_alice, direct_bob, direct_charlie):
@@ -380,3 +384,126 @@ def test_wallet_indexes_are_role_specific_and_page_addressable(direct_vm, direct
     assert combined["total"] == 124
     assert combined["incoming_total"] == 0
     assert combined["performer_total"] == 0
+
+
+def test_escrow_requires_funding_and_supports_challenge_window_payout(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    with direct_vm.expect_revert("positive GEN escrow"):
+        _create(contract, direct_vm, direct_alice, direct_bob, value=0)
+
+    active = _active(contract, direct_vm, direct_alice, direct_bob)
+    created = contract.get_engagement(active)
+    assert created["escrow_amount"] == 10**18
+    assert created["held_amount"] == 10**18
+    assert created["settlement_state"] == "HELD"
+
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "accepted proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
+    accepted = _submit(contract, direct_vm, active, direct_bob, [_ref(0, "funded-a"), _ref(1, "funded-b")])
+    assert accepted["result"] == "ACCEPTED"
+    completed = contract.get_engagement(active)
+    assert completed["held_amount"] == 0
+    assert completed["claimable_amount"] == 10**18
+    assert completed["settlement_state"] == "CHALLENGE_WINDOW"
+
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("challenge window"):
+        contract.withdraw_performer(active)
+    direct_vm.warp("2030-01-01T01:00:01Z")
+    contract.withdraw_performer(active)
+    paid = contract.get_engagement(active)
+    assert paid["claimable_amount"] == 0
+    assert paid["withdrawn_amount"] == 0
+    assert paid["pending_performer_amount"] == 10**18
+    assert paid["settlement_state"] == "PAYOUT_TRANSFER_PENDING"
+    contract.confirm_performer_payout(active)
+    assert contract.get_engagement(active)["settlement_state"] == "PAYOUT_VERIFIED"
+    assert contract.get_engagement(active)["withdrawn_amount"] == 10**18
+    with direct_vm.expect_revert("No performer funds"):
+        contract.withdraw_performer(active)
+
+
+def test_challenge_can_restore_held_funds_and_rejected_challenge_can_release_them(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    upheld = _active(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
+    _submit(contract, direct_vm, upheld, direct_bob, [_ref(0, "challenge-original-a"), _ref(1, "challenge-original-b")])
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "contradictory proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"outcome": "UPHELD"}))
+    direct_vm.sender = direct_alice
+    challenge = contract.challenge_attempt(upheld, 1, 0, json.dumps([_ref(0, "challenge-new")]))
+    assert challenge["outcome"] == "UPHELD"
+    revised = contract.get_engagement(upheld)
+    assert revised["status"] == "ACTIVE"
+    assert revised["latest_result"] == "REVISION_REQUIRED"
+    assert revised["held_amount"] == 10**18
+    assert revised["claimable_amount"] == 0
+
+    released = _active(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
+    _submit(contract, direct_vm, released, direct_bob, [_ref(0, "released-a"), _ref(1, "released-b")])
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "weak challenge"})
+    direct_vm.mock_llm(r".*", json.dumps({"outcome": "REJECTED"}))
+    direct_vm.sender = direct_alice
+    rejected = contract.challenge_attempt(released, 1, 0, json.dumps([_ref(0, "rejected-challenge")]))
+    assert rejected["outcome"] == "REJECTED"
+    released_state = contract.get_engagement(released)
+    assert released_state["settlement_state"] == "CLAIMABLE"
+    direct_vm.warp("2030-01-01T00:00:01Z")
+    direct_vm.sender = direct_bob
+    contract.withdraw_performer(released)
+    assert contract.get_engagement(released)["pending_performer_amount"] == 10**18
+    contract.confirm_performer_payout(released)
+    assert contract.get_engagement(released)["withdrawn_amount"] == 10**18
+
+
+def test_mutual_closure_settles_held_balance_and_requires_both_wallets(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    engagement_id = _active(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.sender = direct_alice
+    digest = contract.request_closure(engagement_id, 4 * 10**17, 6 * 10**17, 7)
+    pending = contract.get_closure(engagement_id)
+    assert pending["status"] == "OPEN"
+    assert pending["requester_approved"] is True
+    assert pending["performer_approved"] is False
+    direct_vm.sender = direct_bob
+    contract.approve_closure(engagement_id, digest)
+    closed = contract.get_engagement(engagement_id)
+    assert closed["status"] == "CLOSED"
+    assert closed["settlement_state"] == "CLOSURE_TRANSFER_PENDING"
+    assert closed["held_amount"] == 0
+    assert closed["claimable_amount"] == 0
+    assert closed["refunded_amount"] == 0
+    assert closed["withdrawn_amount"] == 0
+    assert closed["pending_requester_amount"] == 4 * 10**17
+    assert closed["pending_performer_amount"] == 6 * 10**17
+    direct_vm.sender = direct_alice
+    contract.confirm_closure_transfer(engagement_id)
+    direct_vm.sender = direct_bob
+    contract.confirm_closure_transfer(engagement_id)
+    settled = contract.get_engagement(engagement_id)
+    assert settled["settlement_state"] == "CLOSED_SETTLED"
+    assert settled["refunded_amount"] == 4 * 10**17
+    assert settled["withdrawn_amount"] == 6 * 10**17
+    with direct_vm.expect_revert("cannot be mutually closed"):
+        contract.request_closure(engagement_id, 0, 0, 8)
+
+
+def test_evidence_policy_is_frozen_and_fail_closed(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    policy = json.dumps({"version": 1, "criteria": [{"index": 0, "kind": "VERSIONED_SOURCE", "host": "evidence.example", "immutable": True}]})
+    active = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    assert contract.get_engagement(active)["evidence_policy_json"] == '{"criteria":[{"host":"evidence.example","immutable":true,"index":0,"kind":"VERSIONED_SOURCE"}],"version":1}'
+    direct_vm.mock_web(r"https://.*\.example/.*", {"status": 200, "body": "proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
+    result = _submit(contract, direct_vm, active, direct_bob, [_ref(0, "not-an-immutable-ref"), _ref(1, "policy-ok")])
+    assert result["result"] == "INCONCLUSIVE"

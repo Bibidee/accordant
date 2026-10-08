@@ -6,7 +6,7 @@ ACCORDANT is a backendless GenLayer milestone-acceptance workspace. Two wallets 
 - at least one required criterion `NOT_MET` → `REVISION_REQUIRED`
 - no required criterion `NOT_MET`, but at least one required criterion `UNVERIFIABLE` → `INCONCLUSIVE`
 
-`REVISION_REQUIRED` and `INCONCLUSIVE` keep the engagement active so the performer can submit a new append-only attempt. `ACCEPTED` is terminal for V1.
+`REVISION_REQUIRED` and `INCONCLUSIVE` keep the engagement active so the performer can submit a new append-only attempt. `ACCEPTED` opens a bounded challenge window before the performer can claim the funded payout.
 
 ## Why GenLayer
 
@@ -40,10 +40,10 @@ Never use a non-Studionet network.
 ## V1 roles
 
 ### Requester
-Creates the engagement, names the performer, writes the milestone and 2–7 criteria, marks criteria required/optional, and sets offer/delivery deadlines. Creating the proposal is the requester’s signed acceptance of those terms.
+Creates and funds the engagement, names the performer, writes the milestone and 2–7 criteria, marks criteria required/optional, freezes the evidence policy, and sets offer/delivery deadlines. Creating the proposal is the requester’s signed acceptance of those terms.
 
 ### Performer
-Reviews the frozen proposal and either accepts or declines. After acceptance the performer may submit append-only evidence attempts before the delivery deadline.
+Reviews the funded proposal and either accepts or declines. After acceptance the performer may submit append-only evidence attempts before the delivery deadline, challenge resolution, and payout confirmation.
 
 ### Validators
 Independently retrieve only the evidence explicitly submitted for the attempt, treat external content as untrusted data, judge each criterion, and reproduce the consensus-critical criterion status vector.
@@ -51,12 +51,14 @@ Independently retrieve only the evidence explicitly submitted for the attempt, t
 ## V1 state model
 
 ```text
-PROPOSED -> ACTIVE -> COMPLETED
+PROPOSED -> ACTIVE -> COMPLETED -> CHALLENGE_WINDOW -> PAYOUT_TRANSFER_PENDING -> PAYOUT_VERIFIED
     |         |
     |         -> EXPIRED
     -> DECLINED
     -> CANCELLED
     -> EXPIRED
+
+Any held/claimable balance may instead enter `REFUND_TRANSFER_PENDING`, `CLOSURE_PENDING`, or `CLOSURE_TRANSFER_PENDING`. Both recipients explicitly confirm emitted transfers before the final `REFUNDED`, `PAYOUT_VERIFIED`, or `CLOSED_SETTLED` accounting state.
 ```
 
 Attempts do not replace engagement state with product outcomes. While `ACTIVE`, each attempt records one of:
@@ -66,6 +68,10 @@ Attempts do not replace engagement state with product outcomes. While `ACTIVE`, 
 - `INCONCLUSIVE` → engagement remains `ACTIVE`
 
 Protocol-level GenLayer transaction states such as `ACCEPTED`, `FINALIZED`, or `UNDETERMINED` are transaction lifecycle states and must never be conflated with ACCORDANT product outcomes.
+
+## Economic model
+
+Creation is payable and records the exact GEN amount in the frozen terms digest. Funds move through explicit `HELD`, `CLAIMABLE`, and pending-transfer states. The contract emits native GEN transfers only after deterministic authorization and amount checks; it does not mark a payout or refund as final until the recipient signs a confirmation. Participants may challenge an accepted result during the bounded challenge window, and both parties can request mutual closure over an exact allocation digest.
 
 ## Evidence model
 
@@ -104,7 +110,7 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`; the superseded address and all current deployment/live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
+This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`; deployment, transfer-confirmation, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
 
 Read `BUILD_PROMPT.txt` before changing anything.
 

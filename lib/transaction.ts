@@ -12,5 +12,6 @@ export const SUCCESS_STAGES: Array<{ key: RailKey; label: string }> = [
 export const FAILURE_PHASES = new Set<TxPhase>(["FAILED", "CANCELED", "UNDETERMINED", "MONITORING_STOPPED"]);
 
 export function transactionRailState(phase: TxPhase, canonicalVerified: boolean): { terminalFailure: boolean; current: RailKey } {
-  return { terminalFailure: FAILURE_PHASES.has(phase), current: canonicalVerified ? "CANONICAL_VERIFIED" : phase };
+  const railPhase: RailKey = phase === "FINALIZED_UNVERIFIED" ? "FINALIZED" : phase;
+  return { terminalFailure: FAILURE_PHASES.has(phase), current: canonicalVerified ? "CANONICAL_VERIFIED" : railPhase };
 }
