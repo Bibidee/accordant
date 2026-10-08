@@ -20,7 +20,7 @@ describe("Accordant network lock", () => {
     expect(deriveProductResult(criteria, [{ index: 0, status: "MET" }, { index: 0, status: "MET" }])).toBe("INCONCLUSIVE");
   });
   it("keeps evidence criterion-bound and bounded", () => {
-    const ref: EvidenceRef = { criterion: 0, kind: "VERSIONED_SOURCE", url: "https://example.com/commit/abc" };
+    const ref: EvidenceRef = { criterion: 0, kind: "VERSIONED_SOURCE", url: "https://github.com/example/repository/commit/0123456789abcdef0123456789abcdef01234567/proof", repository: "example/repository", revision: "0123456789abcdef0123456789abcdef01234567", revision_kind: "commit" };
     expect(validateEvidenceRefs(criteria, [ref])).toBe("");
     expect(validateEvidenceRefs(criteria, [{ ...ref, url: "http://example.com" }])).not.toBe("");
     expect(validateEvidenceRefs(criteria, [{ ...ref, criterion: 9 }])).not.toBe("");
@@ -197,12 +197,12 @@ describe("canonical frozen terms and evidence", () => {
   it("matches the contract submission digest and canonical stored payload", async () => {
     const refs: EvidenceRef[] = [
       { criterion: 1, kind: "PUBLIC_ARTIFACT", url: "https://example.com/b", note: " second " },
-      { criterion: 0, kind: "VERSIONED_SOURCE", url: "https://EXAMPLE.com.:443/a", note: "Note" },
+      { criterion: 0, kind: "VERSIONED_SOURCE", url: "https://github.com/example/repository/commit/0123456789abcdef0123456789abcdef01234567/a", note: "Note", repository: "example/repository", revision: "0123456789abcdef0123456789abcdef01234567", revision_kind: "commit" },
     ];
     const canonical = canonicalEvidence(refs);
-    expect(canonical.storedJson).toBe('[{"criterion":0,"kind":"VERSIONED_SOURCE","note":"Note","url":"https://example.com/a"},{"criterion":1,"kind":"PUBLIC_ARTIFACT","note":"second","url":"https://example.com/b"}]');
+    expect(canonical.storedJson).toBe('[{"chain_id":0,"contract":"","criterion":0,"kind":"VERSIONED_SOURCE","network":"","note":"Note","repository":"example/repository","revision":"0123456789abcdef0123456789abcdef01234567","revision_kind":"commit","transaction_hash":"","url":"https://github.com/example/repository/commit/0123456789abcdef0123456789abcdef01234567/a"},{"chain_id":0,"contract":"","criterion":1,"kind":"PUBLIC_ARTIFACT","network":"","note":"second","repository":"","revision":"","revision_kind":"commit","transaction_hash":"","url":"https://example.com/b"}]');
     await expect(computeSubmissionDigest("1", "070bac1d584d5c7f1744f95c6b7caef0a58a36607595b5d29684315d6aaf6eb2", refs)).resolves.toMatchObject({
-      digest: "953c9f11a96d4d72293f23a3a4c678ce10676156e90ba2134581006b1f616377",
+      digest: "3b85a11c6ea0dfc7384a872dcd94ce49e61f3e8292c4e5e404db036a412ffd20",
       storedJson: canonical.storedJson,
     });
   });

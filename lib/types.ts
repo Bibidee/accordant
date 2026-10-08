@@ -13,9 +13,21 @@ export type Engagement = {
   pending_performer_amount: number; settlement_state: string;
 };
 export type EvidenceKind = "VERSIONED_SOURCE" | "TRANSACTION" | "PUBLIC_ARTIFACT" | "LIVE_DEPLOYMENT";
-export type EvidenceRef = { criterion: number; kind: EvidenceKind; url: string; note?: string };
+export type EvidenceRef = {
+  criterion: number;
+  kind: EvidenceKind;
+  url: string;
+  note?: string;
+  repository?: string;
+  revision?: string;
+  revision_kind?: "commit" | "release";
+  transaction_hash?: string;
+  network?: string;
+  chain_id?: number;
+  contract?: string;
+};
 export type TxPhase = "IDLE" | "AWAITING_SIGNATURE" | "SUBMITTED" | "CONSENSUS" | "ACCEPTED_PROVISIONAL" | "FINALIZATION_PENDING" | "FINALIZED" | "FINALIZED_UNVERIFIED" | "UNDETERMINED" | "CANCELED" | "MONITORING_STOPPED" | "FAILED" | "PAYOUT_TRANSFER_PENDING" | "PAYOUT_VERIFIED";
-export type Attempt = { number: number; submission_digest: string; evidence_json: string; result: Exclude<ProductResult, "">; decisions_json: string; evidence_fingerprint?: string; semantic_key?: string; submitted_at: number };
+export type Attempt = { number: number; submission_digest: string; evidence_json: string; result: Exclude<ProductResult, "">; decisions_json: string; evidence_fingerprint?: string; authenticity_json?: string; semantic_key?: string; submitted_at: number };
 export type EngagementPage = {
   ids: string[];
   next_offset: number;

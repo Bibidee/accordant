@@ -112,19 +112,42 @@ export type CanonicalEvidence = {
   kind: string;
   url: string;
   note: string;
+  repository: string;
+  revision: string;
+  revision_kind: string;
+  transaction_hash: string;
+  network: string;
+  chain_id: number;
+  contract: string;
 };
 
 function canonicalEvidenceSort(left: CanonicalEvidence, right: CanonicalEvidence): number {
-  return left.criterion - right.criterion || compareKeys(left.kind, right.kind) || compareKeys(left.url, right.url);
+  return left.criterion - right.criterion || compareKeys(left.kind, right.kind) || compareKeys(left.url, right.url) || compareKeys(left.repository, right.repository) || compareKeys(left.revision, right.revision) || compareKeys(left.transaction_hash, right.transaction_hash);
 }
 
 export function canonicalEvidence(refs: EvidenceRef[]): { stored: CanonicalEvidence[]; semantic: Omit<CanonicalEvidence, "note">[]; storedJson: string; semanticJson: string } {
   const stored = refs.map((ref) => {
     const url = normalizeEvidenceUrl(ref.url);
     if (!url) throw new Error("Evidence could not be canonically normalized.");
-    return { criterion: ref.criterion, kind: ref.kind.trim().toUpperCase(), url, note: (ref.note || "").trim() };
+    return {
+      criterion: ref.criterion,
+      kind: ref.kind.trim().toUpperCase(),
+      url,
+      note: (ref.note || "").trim(),
+      repository: (ref.repository || "").trim().replace(/^\/+|\/+$/g, ""),
+      revision: (ref.revision || "").trim(),
+      revision_kind: (ref.revision_kind || "commit").trim().toLowerCase(),
+      transaction_hash: (ref.transaction_hash || "").trim().toLowerCase(),
+      network: (ref.network || "").trim().toLowerCase(),
+      chain_id: Number(ref.chain_id || 0),
+      contract: (ref.contract || "").trim().toLowerCase(),
+    };
   }).sort(canonicalEvidenceSort);
-  const semantic = stored.map(({ criterion, kind, url }) => ({ criterion, kind, url }));
+  const semantic = stored.map((item) => {
+    const semanticItem = { ...item };
+    delete (semanticItem as Partial<CanonicalEvidence>).note;
+    return semanticItem as Omit<CanonicalEvidence, "note">;
+  });
   return { stored, semantic, storedJson: canonicalJson(stored), semanticJson: canonicalJson(semantic) };
 }
 
