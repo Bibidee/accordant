@@ -51,7 +51,7 @@ def _submit(contract, vm, engagement_id, sender, refs):
     return contract.evaluate_attempt(engagement_id, json.dumps(refs))
 
 
-def _ref(index, path, kind="VERSIONED_SOURCE"):
+def _ref(index, path, kind="PUBLIC_ARTIFACT"):
     return {"criterion": index, "kind": kind, "url": f"https://evidence.example/{path}", "note": "bounded proof"}
 
 
@@ -322,7 +322,7 @@ def test_semantic_replay_ignores_order_and_notes(direct_vm, direct_deploy, direc
     active = _active(contract, direct_vm, direct_alice, direct_bob)
     direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "proof"})
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "NOT_MET", "explanation": "revision"}, {"index": 1, "status": "NOT_MET", "explanation": "revision"}]}))
-    first = [_ref(0, "same-a", kind="PUBLIC_ARTIFACT"), _ref(1, "same-b", kind="VERSIONED_SOURCE")]
+    first = [_ref(0, "same-a", kind="PUBLIC_ARTIFACT"), _ref(1, "same-b", kind="PUBLIC_ARTIFACT")]
     result = _submit(contract, direct_vm, active, direct_bob, first)
     assert result["result"] == "REVISION_REQUIRED"
     replay = [{**first[1], "note": "a different note"}, {**first[0], "note": "another note"}]
@@ -507,3 +507,105 @@ def test_evidence_policy_is_frozen_and_fail_closed(direct_vm, direct_deploy, dir
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
     result = _submit(contract, direct_vm, active, direct_bob, [_ref(0, "not-an-immutable-ref"), _ref(1, "policy-ok")])
     assert result["result"] == "INCONCLUSIVE"
+
+
+def test_github_commit_provenance_requires_repository_and_commit_api_proof(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    policy = json.dumps({
+        "version": 1,
+        "criteria": [
+            {"index": 0, "kind": "VERSIONED_SOURCE", "durability": "durable", "repository": "acme/accordant", "revision_kind": "commit"},
+            {"index": 1, "kind": "VERSIONED_SOURCE", "durability": "durable", "repository": "acme/accordant", "revision_kind": "commit"},
+        ],
+    })
+    active = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    repo_url = "https://api.github.com/repos/acme/accordant"
+    commit_url = f"https://api.github.com/repos/acme/accordant/commits/{sha}"
+    source_url = f"https://github.com/acme/accordant/commit/{sha}/proof"
+    direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "acme/accordant", "owner": {"login": "acme"}})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{sha}$", {"status": 200, "body": json.dumps({"sha": sha, "html_url": f"https://github.com/acme/accordant/commit/{sha}"})})
+    direct_vm.mock_web(rf"https://github\.com/acme/accordant/commit/{sha}/proof", {"status": 200, "body": "durable proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "verified"}, {"index": 1, "status": "MET", "explanation": "verified"}]}))
+    refs = [
+        {"criterion": 0, "kind": "VERSIONED_SOURCE", "url": source_url, "note": "commit proof", "repository": "acme/accordant", "revision": sha, "revision_kind": "commit"},
+        {"criterion": 1, "kind": "VERSIONED_SOURCE", "url": source_url, "note": "commit proof", "repository": "acme/accordant", "revision": sha, "revision_kind": "commit"},
+    ]
+    result = _submit(contract, direct_vm, active, direct_bob, refs)
+    assert result["result"] == "ACCEPTED"
+    assert "GITHUB_COMMIT" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+    assert "proof_digest" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+
+    direct_vm.clear_mocks()
+    forged = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "other/repository", "owner": {"login": "other"}})})
+    direct_vm.mock_web(rf"https://github\.com/acme/accordant/commit/{sha}/proof", {"status": 200, "body": "forged proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "malicious validator"}, {"index": 1, "status": "MET", "explanation": "malicious validator"}]}))
+    forged_result = _submit(contract, direct_vm, forged, direct_bob, refs)
+    assert forged_result["result"] == "INCONCLUSIVE"
+
+
+def test_github_release_provenance_requires_release_api_proof(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    tag = "v1.4.0"
+    release_commit = "fedcba9876543210fedcba9876543210fedcba98"
+    policy = json.dumps({
+        "version": 1,
+        "criteria": [
+            {"index": 0, "kind": "VERSIONED_SOURCE", "durability": "durable", "repository": "acme/accordant", "revision_kind": "release"},
+            {"index": 1, "kind": "VERSIONED_SOURCE", "durability": "durable", "repository": "acme/accordant", "revision_kind": "release"},
+        ],
+    })
+    active = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    source_url = f"https://github.com/acme/accordant/releases/tag/{tag}"
+    direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "acme/accordant", "owner": {"login": "acme"}})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/releases/tags/{tag}$", {"status": 200, "body": json.dumps({"tag_name": tag, "html_url": source_url, "target_commitish": release_commit})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{release_commit}$", {"status": 200, "body": json.dumps({"sha": release_commit, "html_url": f"https://github.com/acme/accordant/commit/{release_commit}"})})
+    direct_vm.mock_web(rf"https://github\.com/acme/accordant/releases/tag/{tag}$", {"status": 200, "body": "published release proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "release verified"}, {"index": 1, "status": "MET", "explanation": "release verified"}]}))
+    refs = [
+        {"criterion": 0, "kind": "VERSIONED_SOURCE", "url": source_url, "note": "release proof", "repository": "acme/accordant", "revision": tag, "revision_kind": "release"},
+        {"criterion": 1, "kind": "VERSIONED_SOURCE", "url": source_url, "note": "release proof", "repository": "acme/accordant", "revision": tag, "revision_kind": "release"},
+    ]
+    result = _submit(contract, direct_vm, active, direct_bob, refs)
+    assert result["result"] == "ACCEPTED"
+    assert "GITHUB_RELEASE" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+
+
+def test_transaction_provenance_requires_matching_explorer_record(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+    tx_hash = "0x" + "ab" * 32
+    contract_address = "0x" + "12" * 20
+    policy = json.dumps({
+        "version": 1,
+        "criteria": [
+            {"index": 0, "kind": "TRANSACTION", "durability": "durable", "network": "genlayer-studionet", "chain_id": 61999, "contract": contract_address},
+            {"index": 1, "kind": "TRANSACTION", "durability": "durable", "network": "genlayer-studionet", "chain_id": 61999, "contract": contract_address},
+        ],
+    })
+    active = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    explorer_url = f"https://explorer-studio.genlayer.com/tx/{tx_hash}"
+    explorer_body = json.dumps({"transaction": {"hash": tx_hash, "to_address": contract_address, "status": "FINALIZED"}})
+    direct_vm.mock_web(rf"https://explorer-studio\.genlayer\.com/api/transactions/{tx_hash}$", {"status": 200, "body": explorer_body})
+    direct_vm.mock_web(rf"https://explorer-studio\.genlayer\.com/tx/{tx_hash}$", {"status": 200, "body": "GenLayer Studionet explorer receipt"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "receipt verified"}, {"index": 1, "status": "MET", "explanation": "receipt verified"}]}))
+    refs = [
+        {"criterion": 0, "kind": "TRANSACTION", "url": explorer_url, "note": "receipt proof", "transaction_hash": tx_hash, "network": "genlayer-studionet", "chain_id": 61999, "contract": contract_address},
+        {"criterion": 1, "kind": "TRANSACTION", "url": explorer_url, "note": "receipt proof", "transaction_hash": tx_hash, "network": "genlayer-studionet", "chain_id": 61999, "contract": contract_address},
+    ]
+    result = _submit(contract, direct_vm, active, direct_bob, refs)
+    assert result["result"] == "ACCEPTED"
+    assert "GENLAYER_RECEIPT" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+
+    direct_vm.clear_mocks()
+    forged = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    forged_contract = "0x" + "34" * 20
+    forged_refs = [dict(refs[0], contract=forged_contract), dict(refs[1], contract=forged_contract)]
+    direct_vm.mock_web(rf"https://explorer-studio\.genlayer\.com/api/transactions/{tx_hash}$", {"status": 200, "body": explorer_body})
+    direct_vm.mock_web(rf"https://explorer-studio\.genlayer\.com/tx/{tx_hash}$", {"status": 200, "body": "GenLayer Studionet explorer receipt"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "malicious validator"}, {"index": 1, "status": "MET", "explanation": "malicious validator"}]}))
+    forged_result = _submit(contract, direct_vm, forged, direct_bob, forged_refs)
+    assert forged_result["result"] == "INCONCLUSIVE"

@@ -77,14 +77,14 @@ Creation is payable and records the exact GEN amount in the frozen terms digest.
 
 Evidence is criterion-bound. The performer does not submit a generic evidence dump and the contract does not crawl the internet looking for proof.
 
-V1 should prefer stable or version-addressed public evidence such as:
+V1 distinguishes current-state evidence from durable historical proof. A source policy can require durable evidence; in that mode mutable `PUBLIC_ARTIFACT` and `LIVE_DEPLOYMENT` references fail closed. Durable evidence uses provider-specific checks:
 
-- commit-addressed GitHub source or commit pages
-- tagged public releases
-- immutable transaction/explorer records
+- commit-addressed GitHub source or commit pages whose repository owner and commit are verified through GitHub's repository and commit APIs
+- tagged public releases whose repository, tag, release URL, and target commit are verified through GitHub's release API
+- immutable transaction/explorer records whose Studionet explorer API receipt matches the transaction hash, finalized status, target contract, and frozen network metadata
 - versioned public documents or artifacts
 
-A live deployment URL can be supporting evidence, but a mutable page loading successfully is not sufficient proof by itself unless the criterion actually asks only for that fact.
+A live deployment URL can be supporting evidence for a criterion that explicitly asks about current reachability or current behavior, but a mutable page loading successfully is not historical proof. The contract stores the declared provenance metadata, provider proof digest, and fetched-content digest in the attempt's authenticity record. Those digests make a decision reproducible and auditable; they do not, by themselves, establish authenticity.
 
 Unavailable, malformed, rate-limited, oversized, ambiguous, or genuinely insufficient evidence must become `UNVERIFIABLE` where appropriate. It must never silently become `NOT_MET`.
 
@@ -110,7 +110,7 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`; deployment, transfer-confirmation, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
+This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0x11dE514195AD2d3e534ab130B41B91682CD6dC0D`; deployment, transfer-confirmation, provenance verification, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
 
 Read `BUILD_PROMPT.txt` before changing anything.
 

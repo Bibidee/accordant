@@ -117,6 +117,27 @@ export function validateEvidenceRefs(criteria: Criterion[], refs: EvidenceRef[])
     if (!known.has(ref.criterion)) return "Evidence references an unknown criterion.";
     if (!EVIDENCE_KINDS.includes(ref.kind)) return "Evidence source kind is not supported.";
     const urlError = validateEvidenceUrl(ref.url); if (urlError) return urlError;
+    if (ref.kind === "VERSIONED_SOURCE") {
+      if (!ref.repository || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(ref.repository.trim().replace(/^\/+|\/+$/g, ""))) return "Versioned sources require an owner/repository declaration.";
+      const revisionKind = ref.revision_kind || "commit";
+      if (revisionKind === "commit" && !/^[0-9a-fA-F]{40}$/.test(ref.revision || "")) return "Versioned commits require a full 40-character SHA.";
+      if (revisionKind === "release" && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(ref.revision || "")) return "Versioned releases require a valid immutable tag.";
+      const sourceUrl = new URL(normalizeEvidenceUrl(ref.url));
+      const parts = sourceUrl.pathname.split("/").filter(Boolean);
+      const [owner, repository] = ref.repository.trim().replace(/^\/+|\/+$/g, "").split("/");
+      const matchesCommit = revisionKind === "commit"
+        && ((sourceUrl.hostname === "github.com" && parts[0]?.toLowerCase() === owner.toLowerCase() && parts[1]?.toLowerCase() === repository.toLowerCase() && parts[2] === "commit" && parts[3]?.toLowerCase() === ref.revision?.toLowerCase())
+          || (sourceUrl.hostname === "raw.githubusercontent.com" && parts[0]?.toLowerCase() === owner.toLowerCase() && parts[1]?.toLowerCase() === repository.toLowerCase() && parts[2]?.toLowerCase() === ref.revision?.toLowerCase()));
+      const matchesRelease = revisionKind === "release" && sourceUrl.hostname === "github.com" && parts[0]?.toLowerCase() === owner.toLowerCase() && parts[1]?.toLowerCase() === repository.toLowerCase() && parts[2] === "releases" && parts[3] === "tag" && parts[4] === ref.revision;
+      if (!matchesCommit && !matchesRelease) return "Versioned source URL must be bound to the declared GitHub repository and revision.";
+    }
+    if (ref.kind === "TRANSACTION") {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(ref.transaction_hash || "")) return "Transactions require a 32-byte transaction hash.";
+      if (ref.network?.trim().toLowerCase() !== "genlayer-studionet" || ref.chain_id !== 61999) return "Transactions must declare GenLayer Studionet and chain ID 61999.";
+      if (!/^0x[0-9a-fA-F]{40}$/.test(ref.contract || "")) return "Transactions require the proven contract address.";
+      const transactionUrl = new URL(normalizeEvidenceUrl(ref.url));
+      if (transactionUrl.hostname !== "explorer-studio.genlayer.com" || !transactionUrl.pathname.toLowerCase().includes((ref.transaction_hash || "").toLowerCase())) return "Transactions must point to the matching Studionet explorer record.";
+    }
     const count = (counts.get(ref.criterion) || 0) + 1; if (count > MAX_EVIDENCE_PER_CRITERION) return "Each criterion may have at most two evidence references."; counts.set(ref.criterion, count);
     const identity = `${ref.criterion}:${ref.kind}:${normalizeEvidenceUrl(ref.url)}`; if (identities.has(identity)) return "Duplicate evidence references are not allowed."; identities.add(identity);
   }
