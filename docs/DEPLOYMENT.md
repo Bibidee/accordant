@@ -51,7 +51,7 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 - Vercel project: `bibidees-projects/accordant`.
 - Production deployment: https://vercel.com/bibidees-projects/accordant/C213fDVxVosBVYHo7rLYSkvJZWvM (`READY`).
 - Generated deployment URL: https://accordant-rawvf15hk-bibidees-projects.vercel.app
-- Production runtime source tree: the exact release commit is recorded in the repository history for this deployment; the deployed contract source is pinned by the SHA-256 value above.
+- Production runtime source tree: protected-master release commit `130ab79077069b7fae242006a38c6fbcf860d82d` (implementation commit `88bc632`).
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -72,7 +72,7 @@ The following checks passed locally:
 - Direct Mode — 13 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, challenges, policy enforcement, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, and closure confirmation views.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Local equivalents passed for this release; the protected-master workflow result is recorded with the release commit.
+- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Protected-master workflow [37830414750](https://github.com/Bibidee/accordant/actions/runs/37830414750) passed all four jobs for merge commit `130ab79077069b7fae242006a38c6fbcf860d82d`.
 
 The current production browser check opened `/`, `/work`, `/work/new`, `/activity`, and `/account`; each route rendered Accordant content and Studionet `61999`, and `/account` showed `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. The available in-app browser viewport was `1280×720` and reported no horizontal overflow. Exact interactive `390×844` mobile QA was not available in the current browser helper, so this record does not claim that specific mobile check.
 
@@ -181,6 +181,6 @@ The canonical attempt ledger contains exactly two attempts: attempt 1 is `REVISI
 
 ## Provenance and verification notes
 
-The final deployable contract source hashes to `B687E24AD9FCEBAC8D9A9E1FEDEE614C2E2E12550BA1C478CBCDDAAB7EB5EA05` and is deployed at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. The release commit is the protected-workflow commit containing this deployment record.
+The final deployable contract source hashes to `B687E24AD9FCEBAC8D9A9E1FEDEE614C2E2E12550BA1C478CBCDDAAB7EB5EA05` and is deployed at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. The protected-master release commit is `130ab79077069b7fae242006a38c6fbcf860d82d`; its four-job verification is [workflow run 37830414750](https://github.com/Bibidee/accordant/actions/runs/37830414750).
 
 The `Protect master` repository ruleset is active (ID `24645498`) for `refs/heads/master`, blocking deletion and non-fast-forward updates and requiring Web, Direct Mode, production audit, and Required CI gate checks. GitHub shows all current commits authored and committed by Bibidee; no Codex-authored history rewrite was necessary.
