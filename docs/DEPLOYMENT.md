@@ -28,14 +28,14 @@ This file records facts observed while building, deploying, and verifying the cu
 
 ## Contract deployment
 
-- Current contract address: `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`.
-- Deployment transaction: `0x50d46f35e463bfe6521f3d4c235424285258d6de535acc978b3431c54ecf887c`.
-- Deployment explorer: https://explorer-studio.genlayer.com/tx/0x50d46f35e463bfe6521f3d4c235424285258d6de535acc978b3431c54ecf887c
+- Current contract address: `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`.
+- Deployment transaction: `0xd4d089eae93409b9c89362a8bc19cd60c6a68565308a2cbcb3efd69521aafba4`.
+- Deployment explorer: https://explorer-studio.genlayer.com/tx/0xd4d089eae93409b9c89362a8bc19cd60c6a68565308a2cbcb3efd69521aafba4
 - Deployment status: `FINALIZED`; result: `MAJORITY_AGREE`.
-- Deployment source SHA-256: `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`.
-- Source commit used for the deployment: `48281c7df1af71086017c7425c0315cf195f2510`.
-- The previous address `0x838D981244760a4A70c315311908347DEc953e8B` is superseded because the contract storage/index schema changed.
-- Schema was re-queried at the fresh address and includes the role-specific paginated engagement methods.
+- Deployment source SHA-256: `B687E24AD9FCEBAC8D9A9E1FEDEE614C2E2E12550BA1C478CBCDDAAB7EB5EA05`.
+- The final revision adds payable GEN escrow, frozen evidence policy, bounded challenges, explicit pending transfers, recipient confirmations, and mutual closure.
+- Previous deployment addresses are superseded because the contract storage and economic state schema changed.
+- The fresh schema includes role-specific pagination, escrow accounting, challenge history, closure state, and transfer-confirmation views.
 
 The deployment command was:
 
@@ -49,9 +49,9 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 
 - Production URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
-- Production deployment: https://vercel.com/bibidees-projects/accordant/5x8zKFQPwjUh7YeyrYz1Nx7YKHKW (`READY`).
-- Generated deployment URL: https://accordant-ola7nj1t3-bibidees-projects.vercel.app
-- Production runtime source tree: protected-master merge `f5c9f5297b98dc4bb1aa3ae22f7d6f23480599f2`.
+- Production deployment: https://vercel.com/bibidees-projects/accordant/C213fDVxVosBVYHo7rLYSkvJZWvM (`READY`).
+- Generated deployment URL: https://accordant-rawvf15hk-bibidees-projects.vercel.app
+- Production runtime source tree: the exact release commit is recorded in the repository history for this deployment; the deployed contract source is pinned by the SHA-256 value above.
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -62,23 +62,40 @@ The following checks passed locally:
 - `npm run network:check` — Studionet 61999 only.
 - `npm run typecheck`.
 - `npm run lint`.
-- `npm run test` — 45 UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, expiry reconciliation, pagination-count races, terminal transaction branches, finalized receipt refresh, and the active-only evidence-desk gate.
+- `npm run test` — 47 UI tests, including strict transaction execution classification, fail-closed receipt refresh/monitor behavior, latest-first pagination boundaries, stale-account protection, role separation, canonical digest parity, concurrent attempt reconciliation, historical/latest attempt semantics, expiry reconciliation, pagination-count races, terminal transaction branches, finalized-unverified handling, finalized receipt refresh, and the active-only evidence-desk gate.
 - `npm run build -- --webpack` — all required routes compiled.
 - `npm audit --omit=dev --audit-level=high` — zero high-severity production vulnerabilities.
 - Full `npm audit --audit-level=high` — `found 0 vulnerabilities` after isolating the deploy CLI, updating Vitest, and replacing the vulnerable Next ESLint bundle with ESLint 9-compatible maintained packages.
 - Fresh `npm ci` — completed successfully with no Windows cleanup/EPERM warning.
 - GitHub Actions uses Node 24-compatible `checkout@v7`, `setup-node@v7`, and `setup-python@v7` actions.
 - `git diff --check`.
-- Direct Mode — 9 contract tests passed against the pinned GenVM `v0.2.16` bundle, including 121-record role/pagination and malformed criterion cases. The compatibility shim is in `tests/direct/conftest.py`; the GenLayer testing suite is pinned in `requirements-dev.txt`.
-- Deployed schema query at `0x5C0D3125B030cA113B3c8866AE6f6B4B742F1e0E`, including `get_performer_incoming` and separate accepted-work pagination.
+- Direct Mode — 13 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, challenges, policy enforcement, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
+- Deployed schema query at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, and closure confirmation views.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate; all four gates passed for the final documentation review before merge.
+- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Local equivalents passed for this release; the protected-master workflow result is recorded with the release commit.
 
-The production URLs `/`, `/work`, `/work/new`, `/activity`, `/account`, `/work/1`, `/work/1/history`, `/work/1/review/1`, and `/work/1/submit` returned HTTP 200 after the frontend deployment. `/account` contained Studionet, chain `61999`, and the current contract address. The exact interactive mobile check passed in Edge at `390×844`: all nine routes returned HTTP 200, each had no horizontal overflow, and the Work navigation link changed the route to `/work`.
+The current production browser check opened `/`, `/work`, `/work/new`, `/activity`, and `/account`; each route rendered Accordant content and Studionet `61999`, and `/account` showed `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. The available in-app browser viewport was `1280×720` and reported no horizontal overflow. Exact interactive `390×844` mobile QA was not available in the current browser helper, so this record does not claim that specific mobile check.
 
-## Historical two-wallet CLI lifecycle
+## Final live two-wallet lifecycle (current contract)
 
-The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (performer). All hashes below target the current contract above and were finalized before canonical readback. This is historical CLI evidence, recorded separately from the fresh Brave injected-wallet production proofs. The captured evidence covers every required path:
+On 2026-10-08, the unlocked CLI wallets `fresh-alice` (requester, `0x7C65cE913F5665c11f1219048112C84CD6cb2a4B`) and `fresh-bob` (performer, `0x2cd419603eBa593074653930Ddc4073d4FD8fc60`) ran the complete lifecycle suite against `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. Escrow was `0.01 GEN` per engagement. The run ended with `lifecycle: all-passed`, accepted engagement `1`, five accepted-work records, and eight incoming records.
+
+| Engagement | Scenario | Evidence and settlement | Final readback |
+| ---: | --- | --- | --- |
+| 1 | accepted + performer payout | create `0x54dca620ff6efa23fbb349a5034288fe926c8471ab3775c73b3ddef894e1d7f8`; accept `0x714f9b87cc727492f3019c9040cfb3061e50078922068f2b9202a0dfdd5d2137`; evaluate `0x354ded8039ef81693664ade0cab9c2896d9f8af68a9e271cf56b09cd59ea4a39`; payout + confirmation `0x5c4fbc378544ad0e17332424b49df7da1b3404f940c73441470fd8bed5159d48`, `0xa4249e59c2dd6703852f258e288ea93482b4b7923c43912a126c4ce738541d88` | `COMPLETED`, `ACCEPTED`, `PAYOUT_VERIFIED` |
+| 2 | revision + retry | create `0xd9bb38f916144aecf4fe39a4aaf47028ce0f870f69e697e026d5f722e8137bfa`; accept `0x26f6dc01a0109b5d826f9fae251fa652f2564aa48a407436c6e0cb98d83aa8b2`; attempt 1 `0x1680fa79a183353497ad40a9bcf13eabafd10216cf3f8308c7ccf8b9186df9cb`; retry `0x5e67e9f37f9fc3d3d3447898abf2a51cc047f3c80f87f561d39e3edbc3271caa` | `ACTIVE`, `REVISION_REQUIRED`, attempt 2, `HELD` |
+| 3 | unavailable evidence | create `0x588d740dcdd49900e08a769c7511ff504d0a75a70d5acd5f07af2f1afb95bfda`; accept `0x3d1c71427c6ee6a9f8f83c8af32d293f95543a22c4bcfdc25b33d0cbdd65507d`; evaluate `0xd383606f56948cce9674b79afa9ee9845c7718d14f67359a90633ce19d38eef8` | `ACTIVE`, `INCONCLUSIVE`, `HELD` |
+| 4 | performer decline + refund confirmation | create `0x79bb3e4553516a2f44258820866dc594138939f0197b7db752ccf8c3521e1667`; decline `0xa3117a198628f8931a706f09ba9e642247ac509e05aff8a5edcea46f5f6e02d6`; refund confirmation `0xccb66e2868914f8380974ade4841f96eb1d4d2a8d3c66e9879d25f477e0aee1b` | `DECLINED`, `REFUNDED` |
+| 5 | requester cancel + refund confirmation | create `0x608064fc61949fbd27bbb5a5927c38b0c3a11cf548635e1df5ad6ccb239439e7`; cancel `0x4ff49865a03478d273e7f406c116f32abd7446c3e70be1cd755b5facd53920fd`; refund confirmation `0x07a61ed63dab029423bb71ab3bdb6b0db17c68dc7be7c9df1a9c5ed7b2b179d2` | `CANCELLED`, `REFUNDED` |
+| 6 | proposal expiry + refund confirmation | create `0x1f6e5c58ec800df359dcea3e56e31873e39808c276e416060d82eef29c17200b`; close expired `0x63790d687a79d887a188a7cf1ddf3203f31fd9d5dbabcb61ff8801f64084dbb6`; refund confirmation `0xdcfc5ba1e8fb09ddbbab9cdb2ccd2a408afae4cfbf17ed8f8a96832c31c65afe` | `EXPIRED`, `REFUNDED` |
+| 7 | active delivery expiry + refund confirmation | create `0x899f0b85be10de3dd5d2d9ee2284d40d81f03432a48f3740843775e0a04d2e3d`; accept `0x8e3342f89e35dd0145ec51fbcdb7b98b5f36cb7cf2eeb99d0c57e732ab0db949`; close expired `0x5c99c7e1c4486270a462758deb9308826ae128c9b105fa269011fc3e1581d6b7`; refund confirmation `0xa7388a185921f081e79f5549833cb9244a054d65c8d2fc93c67a6e44610fed77` | `EXPIRED`, `REFUNDED` |
+| 8 | mutual closure + two-sided confirmation | request `0xa2288d4eb4e513e3ab6d431245f66a56506b4a19186ead0f61cb0486f17708e6`; requester confirmation `0x8cfd17ab59fdabab40d2b3e96dccef242e6bdeeabbffc131f87554a7910ab962`; performer confirmation `0xeaf59034bbfa187f3ae8b0780642e7d6dc6f47861f4c0b93ea864b12c618621e` | `CLOSED`, `CLOSED_SETTLED` |
+
+Every transaction finalized successfully. Pending payout/refund/closure transfers were not counted as settled until the intended recipient submitted the corresponding confirmation.
+
+## Historical two-wallet CLI lifecycle (superseded contract)
+
+The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (performer). The hashes below target the superseded pre-economic deployment and are retained only as historical evidence; the final-address lifecycle is recorded separately below.
 
 | Engagement | Scenario | Result |
 | ---: | --- | --- |
@@ -118,7 +135,7 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 - Engagement `14`; create `0x7fdeebc11212f914df590638bf4150496f0aebf9fe7609b77663f40075ffa9df`; accept `0xcb2b58074f9bc4dd79e853f529ddc89c583bee6f71ad993a1c9c223c4f5a4da8`; close-expired `0x9124715bcbd443e7549d61715d394badca6297176937350e74f1389fb52628c8`; final `EXPIRED`, attempt 0.
 
-## Fresh Brave production lifecycle
+## Historical Brave production lifecycle (superseded contract)
 
 - Status: `COMPLETED` on 2026-10-07 using the public production site in Brave.
 - Environment: two injected wallets on GenLayer Studionet `61999`; Wallet A was the requester and Wallet B was the performer.
@@ -135,7 +152,7 @@ The unlocked CLI wallets were `fresh-alice` (requester) and `fresh-bob` (perform
 
 This records the fresh Brave injected-wallet lifecycle separately from the historical CLI lifecycle above. The earlier exact interactive mobile check remains recorded for Edge at `390×844`.
 
-## Fresh Brave revision-recovery lifecycle
+## Historical Brave revision-recovery lifecycle (superseded contract)
 
 - Status: `COMPLETED` on 2026-10-07 using the public production site in Brave.
 - Environment: two injected wallets on GenLayer Studionet `61999`; Wallet A was the requester and Wallet B was the performer.
@@ -164,6 +181,6 @@ The canonical attempt ledger contains exactly two attempts: attempt 1 is `REVISI
 
 ## Provenance and verification notes
 
-The deployable contract source at commit `48281c7df1af71086017c7425c0315cf195f2510` hashes to `D730EBB1574BEEEC501C3FA4C29016C00DFFB831A8D345D50642744903381EA4`. Later changes are frontend pagination/canonical verification, tests, documentation, environment binding, lifecycle-runner cleanup, dependency remediation, and CI runtime hardening; the concurrent-attempt and page-race frontend fix is in commit `738f1ef11ebb7b56793cfbd6fd8d02663392648a`, and the final dependency/CI remediation is in `022fc21c82e467bdfb62d95d19a426102f5cf7da`; `contracts/accordant.py` is unchanged after that deployment commit. No contract redeployment was required.
+The final deployable contract source hashes to `B687E24AD9FCEBAC8D9A9E1FEDEE614C2E2E12550BA1C478CBCDDAAB7EB5EA05` and is deployed at `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620`. The release commit is the protected-workflow commit containing this deployment record.
 
 The `Protect master` repository ruleset is active (ID `24645498`) for `refs/heads/master`, blocking deletion and non-fast-forward updates and requiring Web, Direct Mode, production audit, and Required CI gate checks. GitHub shows all current commits authored and committed by Bibidee; no Codex-authored history rewrite was necessary.

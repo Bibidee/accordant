@@ -84,6 +84,8 @@ export function TransactionNotice({ hash, label, onFinalized, onPhase }: Props) 
     {canonicalPending && <p className="warning">Finalized. Reading the canonical Accordant state before confirming this action…</p>}
     {record?.phase === "FINALIZED" && !canonicalVerified && !canonicalPending && <p className="warning">Transaction finalized, but canonical state is not yet verified. Reconcile this exact hash before retrying.</p>}
     {record?.phase === "ACCEPTED_PROVISIONAL" && <p className="warning">GenLayer accepted the transaction provisionally. The product state is not confirmed until finalization and canonical readback.</p>}
+    {record?.phase === "FINALIZATION_PENDING" && <p className="warning">The protocol accepted this transaction, but execution success is not available yet. Keep the exact hash and refresh; no product state is inferred.</p>}
+    {record?.phase === "FINALIZED_UNVERIFIED" && <p className="warning">The protocol finalized this transaction, but execution metadata is still unavailable. No product state is inferred; refresh this exact hash before retrying.</p>}
     <div className="row">{hash && <a className="button secondary" href={EXPLORER_URL + "/tx/" + hash} target="_blank" rel="noreferrer">Open explorer</a>}{hash && <button onClick={() => { void refreshOnce(); }} disabled={loading}>Refresh receipt</button>}{hash && <button className="secondary" disabled={loading} onClick={() => { void reconcile(); }}>{loading ? "Reconciling…" : "Monitor to finality"}</button>}</div>
     {error && <p className="error" role="alert">{error}</p>}
   </div>;

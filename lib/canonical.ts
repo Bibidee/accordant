@@ -12,6 +12,9 @@ export type FrozenTerms = {
   criteria: Criterion[];
   proposalDeadline: number;
   deliveryDeadline: number;
+  evidencePolicyJson: string;
+  challengeWindowSeconds: number;
+  escrowAmountWei: string;
 };
 
 export function canonicalFrozenTerms(input: {
@@ -22,7 +25,12 @@ export function canonicalFrozenTerms(input: {
   criteria: Array<{ text: string; required: boolean }>;
   proposalDeadline: number;
   deliveryDeadline: number;
+  evidencePolicyJson?: string;
+  challengeWindowSeconds?: number;
+  escrowAmountWei?: string;
 }): FrozenTerms {
+  let policy = input.evidencePolicyJson?.trim() || '{"criteria":[],"version":1}';
+  try { policy = canonicalJson(JSON.parse(policy)); } catch { /* the contract returns a clear validation error for malformed policy JSON */ }
   return {
     requester: getAddress(input.requester.trim()),
     performer: getAddress(input.performer.trim()),
@@ -31,6 +39,9 @@ export function canonicalFrozenTerms(input: {
     criteria: input.criteria.map((criterion, index) => ({ index, text: criterion.text.trim(), required: Boolean(criterion.required) })),
     proposalDeadline: Math.floor(input.proposalDeadline),
     deliveryDeadline: Math.floor(input.deliveryDeadline),
+    evidencePolicyJson: policy,
+    challengeWindowSeconds: Math.floor(input.challengeWindowSeconds || 3600),
+    escrowAmountWei: input.escrowAmountWei || "0",
   };
 }
 
@@ -71,6 +82,9 @@ export async function computeTermsDigest(terms: FrozenTerms): Promise<string> {
     criteria: terms.criteria,
     proposal_deadline: terms.proposalDeadline,
     delivery_deadline: terms.deliveryDeadline,
+    evidence_policy_json: terms.evidencePolicyJson,
+    challenge_window_seconds: terms.challengeWindowSeconds,
+    escrow_amount: terms.escrowAmountWei,
   }));
 }
 
@@ -86,6 +100,9 @@ export function frozenTermsMatch(engagement: Engagement, expected: FrozenTerms, 
     && criteriaMatch
     && engagement.proposal_deadline === expected.proposalDeadline
     && engagement.delivery_deadline === expected.deliveryDeadline
+    && engagement.evidence_policy_json === expected.evidencePolicyJson
+    && engagement.challenge_window_seconds === expected.challengeWindowSeconds
+    && String(engagement.escrow_amount) === expected.escrowAmountWei
     && (!expectedDigest || engagement.terms_digest === expectedDigest)
     && engagement.status === "PROPOSED";
 }

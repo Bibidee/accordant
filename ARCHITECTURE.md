@@ -35,13 +35,18 @@ The contract should own at minimum:
 - per-criterion decisions
 - overall attempt result
 - replay protection
+- escrow amount, held/claimable/pending/settled transfer accounting
+- frozen evidence policy and challenge history
+- mutual closure approvals and recipient transfer confirmations
 - wallet-to-engagement indexes if needed for frontend reads
 
 ## Authority rules
 
 Requester:
-- can create a proposal
+- can create and fund a proposal
 - can cancel only while `PROPOSED`
+- can challenge an accepted attempt during the challenge window
+- can confirm requester refunds and closure transfers
 - cannot edit terms after creation
 - cannot accept on behalf of performer
 - cannot set or override decisions
@@ -49,6 +54,8 @@ Requester:
 Performer:
 - can accept or decline while `PROPOSED`
 - can submit attempts only while `ACTIVE`
+- can withdraw and confirm payout after the challenge window
+- can challenge an accepted attempt and confirm closure transfers
 - cannot edit criteria
 - cannot set or override decisions
 
@@ -59,6 +66,10 @@ Validators:
 Contract deterministic logic:
 - enforces authorization
 - enforces deadlines
+- holds exact GEN escrow and emits only authorized native transfers
+- keeps payout/refund/closure amounts pending until recipient confirmation
+- bounds challenge count and challenge window
+- requires both participants to approve exact mutual-closure allocations
 - derives overall result from criterion statuses
 - controls terminal states
 - prevents replay
@@ -77,5 +88,7 @@ Frontend must explicitly represent:
 7. final transaction status
 8. canonical contract readback
 9. expected product state confirmed or mismatch surfaced
+
+Economic settlement is a separate rail: a finalized method that emits a native transfer is shown as `*_TRANSFER_PENDING` until the intended recipient confirms the transfer. A protocol receipt alone never proves recipient credit.
 
 Never blindly rebroadcast after refresh or polling timeout when a hash already exists.

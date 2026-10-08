@@ -17,6 +17,8 @@ const bobClient = createClient({ chain: chains.studionet, endpoint: rpc, account
 const address = contractAddress;
 const waitMs = 5000;
 const maxPolls = 72;
+const escrow = 10n ** 16n;
+const defaultPolicy = JSON.stringify({ version: 1, criteria: [] });
 
 function statusOf(receipt) { return String(receipt.statusName || receipt.status_name || receipt.status || "UNKNOWN").toUpperCase(); }
 function hashOf(value) { return typeof value === "string" ? value : String(value?.hash || value?.tx_id || value?.transactionHash || ""); }
@@ -48,8 +50,8 @@ async function waitForTerminal(client, hash) {
   throw new Error(`Timed out while reconciling ${hash}`);
 }
 
-async function write(client, functionName, args) {
-  const raw = await client.writeContract({ address, functionName, args, value: 0n });
+async function write(client, functionName, args, value = 0n) {
+  const raw = await client.writeContract({ address, functionName, args, value });
   const hash = hashOf(raw);
   if (!hash) throw new Error(`No transaction hash returned for ${functionName}`);
   const receipt = await waitForTerminal(client, hash);
@@ -104,13 +106,21 @@ function deadlines(proposalSeconds = 3600, deliverySeconds = 7200) {
 async function create(title, summary, criteria, refs, expected) {
   const [proposal, delivery] = deadlines();
   const beforeIds = new Set(await walletIds(alice.address));
-  const made = await write(aliceClient, "create_engagement", [bob.address, title, summary, criteria, criteria.map(() => true), proposal, delivery]);
+  const challengeWindow = expected === "ACCEPTED" ? 60 : 3600;
+  const made = await write(aliceClient, "create_engagement", [bob.address, title, summary, criteria, criteria.map(() => true), proposal, delivery, defaultPolicy, challengeWindow], escrow);
   const id = await newEngagementId(beforeIds);
   const accepted = await write(bobClient, "accept_engagement", [id]);
   const submitted = await write(bobClient, "evaluate_attempt", [id, JSON.stringify(refs)]);
+  let payout = "";
+  if (expected === "ACCEPTED") {
+    await sleep(70000);
+    const payoutTx = await write(bobClient, "withdraw_performer", [id]);
+    const payoutConfirm = await write(bobClient, "confirm_performer_payout", [id]);
+    payout = `${payoutTx.hash},${payoutConfirm.hash}`;
+  }
   const engagement = await read(aliceClient, "get_engagement", [id]);
   const attempts = await read(aliceClient, "get_attempts", [id, 0, 20]);
-  const result = { expected, id, create: made.hash, accept: accepted.hash, evaluate: submitted.hash, status: engagement.status, productResult: engagement.latest_result, attemptCount: engagement.attempt_count, attemptResult: attempts.items?.at(-1)?.result };
+  const result = { expected, id, create: made.hash, accept: accepted.hash, evaluate: submitted.hash, payout, status: engagement.status, settlementState: engagement.settlement_state, productResult: engagement.latest_result, attemptCount: engagement.attempt_count, attemptResult: attempts.items?.at(-1)?.result };
   console.log(JSON.stringify(result));
   return result;
 }
@@ -118,7 +128,10 @@ async function create(title, summary, criteria, refs, expected) {
 async function createUntil(title, summary, criteria, refs, expected) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const result = await create(`${title} probe ${attempt}`, summary, criteria, refs, expected);
-    if (result.productResult === expected) return result;
+    const acceptable = expected === "REVISION_REQUIRED"
+      ? ["REVISION_REQUIRED", "INCONCLUSIVE"].includes(result.productResult)
+      : result.productResult === expected;
+    if (acceptable) return result;
   }
   throw new Error(`${title}: did not reach ${expected} after three fresh two-wallet probes`);
 }
@@ -126,7 +139,7 @@ async function createUntil(title, summary, criteria, refs, expected) {
 async function createProposal(title, proposalSeconds = 3600, deliverySeconds = proposalSeconds + 3600) {
   const [proposal, delivery] = deadlines(proposalSeconds, deliverySeconds);
   const beforeIds = new Set(await walletIds(alice.address));
-  const made = await write(aliceClient, "create_engagement", [bob.address, title, "A lifecycle transition probe with public readback.", ["The transition is recorded in the public engagement state.", "The transition remains bound to the frozen terms."], [true, true], proposal, delivery]);
+  const made = await write(aliceClient, "create_engagement", [bob.address, title, "A lifecycle transition probe with public readback.", ["The transition is recorded in the public engagement state.", "The transition remains bound to the frozen terms."], [true, true], proposal, delivery, defaultPolicy, 3600], escrow);
   return { id: await newEngagementId(beforeIds), create: made.hash, proposal };
 }
 
@@ -155,23 +168,26 @@ await create("Live inconclusive lifecycle", "One source is intentionally unavail
 
 const declined = await createProposal("Live decline lifecycle");
 const declinedTx = await write(bobClient, "decline_engagement", [declined.id]);
+const declinedRefund = await write(aliceClient, "confirm_refund", [declined.id]);
 const declinedReadback = await read(aliceClient, "get_engagement", [declined.id]);
-const declinedResult = { lifecycle: "declined", id: declined.id, create: declined.create, decline: declinedTx.hash, status: declinedReadback.status, productResult: declinedReadback.latest_result, attemptCount: declinedReadback.attempt_count };
+const declinedResult = { lifecycle: "declined", id: declined.id, create: declined.create, decline: declinedTx.hash, refundConfirm: declinedRefund.hash, status: declinedReadback.status, settlementState: declinedReadback.settlement_state, productResult: declinedReadback.latest_result, attemptCount: declinedReadback.attempt_count };
 console.log(JSON.stringify(declinedResult));
 if (declinedReadback.status !== "DECLINED") throw new Error("Decline lifecycle readback failed");
 
 const canceled = await createProposal("Live cancel lifecycle");
 const canceledTx = await write(aliceClient, "cancel_proposal", [canceled.id]);
+const canceledRefund = await write(aliceClient, "confirm_refund", [canceled.id]);
 const canceledReadback = await read(aliceClient, "get_engagement", [canceled.id]);
-const canceledResult = { lifecycle: "canceled", id: canceled.id, create: canceled.create, cancel: canceledTx.hash, status: canceledReadback.status, productResult: canceledReadback.latest_result, attemptCount: canceledReadback.attempt_count };
+const canceledResult = { lifecycle: "canceled", id: canceled.id, create: canceled.create, cancel: canceledTx.hash, refundConfirm: canceledRefund.hash, status: canceledReadback.status, settlementState: canceledReadback.settlement_state, productResult: canceledReadback.latest_result, attemptCount: canceledReadback.attempt_count };
 console.log(JSON.stringify(canceledResult));
 if (canceledReadback.status !== "CANCELLED") throw new Error("Cancel lifecycle readback failed");
 
 const expired = await createProposal("Live proposal expiry lifecycle", 20, 60);
 await sleep(25000);
 const expiredTx = await write(aliceClient, "close_expired", [expired.id]);
+const expiredRefund = await write(aliceClient, "confirm_refund", [expired.id]);
 const expiredReadback = await read(aliceClient, "get_engagement", [expired.id]);
-const expiredResult = { lifecycle: "proposal-expired", id: expired.id, create: expired.create, expire: expiredTx.hash, status: expiredReadback.status, productResult: expiredReadback.latest_result, attemptCount: expiredReadback.attempt_count };
+const expiredResult = { lifecycle: "proposal-expired", id: expired.id, create: expired.create, expire: expiredTx.hash, refundConfirm: expiredRefund.hash, status: expiredReadback.status, settlementState: expiredReadback.settlement_state, productResult: expiredReadback.latest_result, attemptCount: expiredReadback.attempt_count };
 console.log(JSON.stringify(expiredResult));
 if (expiredReadback.status !== "EXPIRED") throw new Error("Proposal expiry lifecycle readback failed");
 
@@ -181,10 +197,22 @@ const activeBeforeExpiry = await read(aliceClient, "get_engagement", [activeExpi
 if (activeBeforeExpiry.status !== "ACTIVE") throw new Error("Active delivery expiry did not reach ACTIVE");
 await sleep(215000);
 const activeExpiredTx = await write(aliceClient, "close_expired", [activeExpired.id]);
+const activeExpiredRefund = await write(aliceClient, "confirm_refund", [activeExpired.id]);
 const activeExpiredReadback = await read(aliceClient, "get_engagement", [activeExpired.id]);
-const activeExpiredResult = { lifecycle: "active-delivery-expired", id: activeExpired.id, create: activeExpired.create, accept: activeAcceptedTx.hash, expire: activeExpiredTx.hash, status: activeExpiredReadback.status, productResult: activeExpiredReadback.latest_result, attemptCount: activeExpiredReadback.attempt_count };
+const activeExpiredResult = { lifecycle: "active-delivery-expired", id: activeExpired.id, create: activeExpired.create, accept: activeAcceptedTx.hash, expire: activeExpiredTx.hash, refundConfirm: activeExpiredRefund.hash, status: activeExpiredReadback.status, settlementState: activeExpiredReadback.settlement_state, productResult: activeExpiredReadback.latest_result, attemptCount: activeExpiredReadback.attempt_count };
 console.log(JSON.stringify(activeExpiredResult));
 if (activeExpiredReadback.status !== "EXPIRED") throw new Error("Active delivery expiry lifecycle readback failed");
+
+const closure = await createProposal("Live mutual closure lifecycle");
+await write(bobClient, "accept_engagement", [closure.id]);
+const closureDigest = await write(aliceClient, "request_closure", [closure.id, escrow / 2n, escrow / 2n, 1n]);
+const closureTerms = await read(aliceClient, "get_closure", [closure.id]);
+await write(bobClient, "approve_closure", [closure.id, closureTerms.digest]);
+const closureRequesterConfirm = await write(aliceClient, "confirm_closure_transfer", [closure.id]);
+const closurePerformerConfirm = await write(bobClient, "confirm_closure_transfer", [closure.id]);
+const closureReadback = await read(aliceClient, "get_engagement", [closure.id]);
+console.log(JSON.stringify({ lifecycle: "mutual-closure", id: closure.id, request: closureDigest.hash, requesterConfirm: closureRequesterConfirm.hash, performerConfirm: closurePerformerConfirm.hash, status: closureReadback.status, settlementState: closureReadback.settlement_state }));
+if (closureReadback.status !== "CLOSED") throw new Error("Mutual closure lifecycle readback failed");
 
 const acceptedIndex = await read(bobClient, "get_performer_engagements", [bob.address, 0, 20]);
 const incomingIndex = await read(bobClient, "get_performer_incoming", [bob.address, 0, 20]);

@@ -31,8 +31,12 @@ describe("transaction execution classification", () => {
     expect(makeRecord("FINALIZED", execution).phase).toBe("FAILED");
   });
 
-  it("fails FINALIZED when the execution result is missing", () => {
-    expect(makeRecord("FINALIZED").phase).toBe("FAILED");
+  it("keeps FINALIZED without execution metadata fail-closed and unverified", () => {
+    expect(makeRecord("FINALIZED").phase).toBe("FINALIZED_UNVERIFIED");
+  });
+
+  it("keeps ACCEPTED without execution metadata pending finalization", () => {
+    expect(makeRecord("ACCEPTED").phase).toBe("FINALIZATION_PENDING");
   });
 
   it("fails ACCEPTED when execution timed out", () => {
