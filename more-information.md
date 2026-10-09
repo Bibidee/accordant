@@ -6,6 +6,36 @@ Requested by PAPITO on October 8, 2026.
 
 This document records how ACCORDANT addresses the requested consequential settlement, evidence integrity, dispute lifecycle, transaction correctness, and verification requirements. The implementation is merged on protected `master`, deployed to GenLayer Studionet, and live-verified with two unlocked wallets.
 
+## Final remediation update — closure recovery and challenge-window protection
+
+The two final contract-level findings were implemented in the closure-recovery release and verified on October 9, 2026.
+
+### Closure recovery
+
+- `request_closure()` now records the prior settlement state and opens a bounded one-hour closure window.
+- Either participant can call `cancel_closure()` before execution.
+- Either participant can call `expire_closure()` after the deadline.
+- Cancellation or expiry restores the exact prior settlement state, so an unapproved closure cannot strand payout, refund, challenge, or delivery recovery.
+- Approval after the closure deadline fails closed; only the two-sided approval path can execute transfers.
+- The frontend displays the closure countdown and exposes the correct cancel or expire action.
+
+### Challenge-window protection
+
+- `challenge_attempt()` no longer replaces `challenge_deadline` after `REJECTED` or `INCONCLUSIVE`.
+- Unsuccessful challenges keep the engagement in `CHALLENGE_WINDOW` until the original deadline.
+- A performer-initiated rejected or inconclusive challenge cannot unlock payment early or remove the requester’s remaining challenge opportunity.
+
+### Final verification and deployment
+
+- Added adversarial Direct Mode coverage for withheld closure approval, stale closure approval, closure cancellation/expiry, prior-state restoration, and performer self-challenge deadline preservation.
+- Direct Mode: 17 tests passed; frontend: 47 tests passed; typecheck, lint, production build, and dependency audit passed.
+- Fresh two-wallet lifecycle against the new contract ended `lifecycle: all-passed`.
+- New contract: [`0xF34B9BbA585137b05Fc00a3921297614661D836D`](https://explorer-studio.genlayer.com/address/0xF34B9BbA585137b05Fc00a3921297614661D836D).
+- Deployment receipt: [`0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb), `FINALIZED`.
+- Contract release source: protected-master commit [`b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45).
+- Production deployment: [`accordant.vercel.app`](https://accordant.vercel.app), READY.
+- Final documentation sync: protected-master commit `b3072caa64595c134bd1a34f6d59182d33d43380`; [CI run `37897183247`](https://github.com/Bibidee/accordant/actions/runs/37897183247) passed all four required jobs.
+
 ## Final status
 
 | Item | Final result |
