@@ -43,6 +43,6 @@ The baseline findings below are retained as historical context. The current stat
 - Full development and production npm audits now report `found 0 vulnerabilities`; the deploy CLI is isolated from the frontend dependency tree and the lint stack no longer uses the vulnerable Next ESLint bundle.
 - GitHub Actions uses Node 24-compatible action majors, and the active `Protect master` ruleset (ID `24645498`) requires all four CI checks while blocking deletion and non-fast-forward updates.
 - The protected master ruleset requires all four CI checks; current master verification should always refer to the latest successful protected-master workflow rather than a fixed historical run number. The production deployment is recorded in `docs/DEPLOYMENT.md`.
-- The final provenance-hardened contract was freshly deployed at `0x11dE514195AD2d3e534ab130B41B91682CD6dC0D` with deployment transaction `0xe8161c8149c50f04db347f7f5ede0e5236858f413f483d2276087b8a7312063e` and source SHA `C98D0AC84862851542A6967F72D4961A84B024C6522977A615A53A73EC1C4E44`.
+- The final signature-hardened contract was freshly deployed at `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6` with deployment transaction `0xc510662ea42ae15200d67a749b341c996f3f1d5974d9b977a793a16dc5f6a50a` and source SHA `CC0EC42ADA86145EA0308BD173FFBD3FCDB854BD0FB2C60C1886562CD00FCABA`.
 
 The changed-contract deployment requirement is satisfied. Previous deployment addresses are superseded and are not current production bindings.
