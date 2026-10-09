@@ -21,13 +21,13 @@ Mitigation: unavailable/malformed/rate-limited/insufficient sources map to `UNVE
 Mitigation: the frozen evidence policy distinguishes `current` from `durable` criteria. Mutable `PUBLIC_ARTIFACT` and `LIVE_DEPLOYMENT` references are rejected for durable criteria; they can only support a criterion that explicitly asks about current state.
 
 ### Immutable source ownership and revision provenance
-Mitigation: `VERSIONED_SOURCE` references must declare a GitHub repository, a full commit SHA or release tag, and a URL bound to that exact repository/revision. The contract independently fetches GitHub's repository plus commit/release APIs and requires the returned owner, repository, revision, canonical URL, and release target data to agree. A commit-like string in an arbitrary URL is not sufficient.
+Mitigation: `VERSIONED_SOURCE` references must declare a GitHub repository, a full commit SHA or release tag, and a URL bound to that exact repository/revision. The contract independently fetches GitHub's repository plus commit/release APIs and requires the returned owner, repository, revision, canonical URL, and release target data to agree. For commits and release targets, GitHub must also report `verified=true` with `reason=valid`, a non-empty cryptographic signature, signed payload, and verification timestamp; the signature and payload digests are stored in the attempt audit record. A commit-like string, provider existence response, or content hash alone is not sufficient.
 
 ### Transaction provenance
 Mitigation: `TRANSACTION` references must declare the 32-byte hash, `genlayer-studionet`, chain `61999`, the target contract, and the matching Studionet explorer URL. The contract fetches the explorer's transaction-detail API and requires a matching hash, target contract, and `FINALIZED` receipt. The Studionet endpoint and chain binding are fixed; caller-declared metadata cannot turn an unrelated receipt into proof.
 
 ### Evidence fingerprints versus authenticity
-Mitigation: every attempt stores the provider verification method/result, provider proof digest, fetched-content digest, and provenance metadata in `authenticity_json`; those fields are included in the evidence fingerprint and consensus comparison. A digest proves what was observed and bound to the attempt, not that an arbitrary source was genuine. Genuine authenticity is granted only after the source-specific GitHub or Studionet receipt checks pass.
+Mitigation: every attempt stores the provider verification method/result, provider proof digest, signed-payload digest where applicable, fetched-content digest, and provenance metadata in `authenticity_json`; those fields are included in the evidence fingerprint and consensus comparison. A digest proves what was observed and bound to the attempt, not that an arbitrary source was genuine. Genuine source authenticity is granted only after the source-specific GitHub signature or Studionet receipt checks pass.
 
 ### Replay
 Mitigation: canonical attempt digest and/or evidence digest is evaluated once per engagement.

@@ -110,7 +110,7 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0x11dE514195AD2d3e534ab130B41B91682CD6dC0D`; deployment, transfer-confirmation, provenance verification, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
+This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`; deployment, transfer-confirmation, signed GitHub provenance verification, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
 
 Read `BUILD_PROMPT.txt` before changing anything.
 

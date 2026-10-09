@@ -525,7 +525,7 @@ def test_github_commit_provenance_requires_repository_and_commit_api_proof(direc
     commit_url = f"https://api.github.com/repos/acme/accordant/commits/{sha}"
     source_url = f"https://github.com/acme/accordant/commit/{sha}/proof"
     direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "acme/accordant", "owner": {"login": "acme"}})})
-    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{sha}$", {"status": 200, "body": json.dumps({"sha": sha, "html_url": f"https://github.com/acme/accordant/commit/{sha}"})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{sha}$", {"status": 200, "body": json.dumps({"sha": sha, "html_url": f"https://github.com/acme/accordant/commit/{sha}", "verification": {"verified": True, "reason": "valid", "signature": "signed commit", "payload": "commit payload", "verified_at": "2026-10-09T00:00:00Z"}})})
     direct_vm.mock_web(rf"https://github\.com/acme/accordant/commit/{sha}/proof", {"status": 200, "body": "durable proof"})
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "verified"}, {"index": 1, "status": "MET", "explanation": "verified"}]}))
     refs = [
@@ -534,7 +534,7 @@ def test_github_commit_provenance_requires_repository_and_commit_api_proof(direc
     ]
     result = _submit(contract, direct_vm, active, direct_bob, refs)
     assert result["result"] == "ACCEPTED"
-    assert "GITHUB_COMMIT" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+    assert "GITHUB_COMMIT_SIGNED" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
     assert "proof_digest" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
 
     direct_vm.clear_mocks()
@@ -544,6 +544,15 @@ def test_github_commit_provenance_requires_repository_and_commit_api_proof(direc
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "malicious validator"}, {"index": 1, "status": "MET", "explanation": "malicious validator"}]}))
     forged_result = _submit(contract, direct_vm, forged, direct_bob, refs)
     assert forged_result["result"] == "INCONCLUSIVE"
+
+    direct_vm.clear_mocks()
+    unsigned = _active(contract, direct_vm, direct_alice, direct_bob, policy=policy)
+    direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "acme/accordant", "owner": {"login": "acme"}})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{sha}$", {"status": 200, "body": json.dumps({"sha": sha, "html_url": f"https://github.com/acme/accordant/commit/{sha}", "verification": {"verified": False, "reason": "unsigned", "signature": "", "payload": "", "verified_at": ""}})})
+    direct_vm.mock_web(rf"https://github\.com/acme/accordant/commit/{sha}/proof", {"status": 200, "body": "unsigned proof"})
+    direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "malicious validator"}, {"index": 1, "status": "MET", "explanation": "malicious validator"}]}))
+    unsigned_result = _submit(contract, direct_vm, unsigned, direct_bob, refs)
+    assert unsigned_result["result"] == "INCONCLUSIVE"
 
 
 def test_github_release_provenance_requires_release_api_proof(direct_vm, direct_deploy, direct_alice, direct_bob):
@@ -562,7 +571,7 @@ def test_github_release_provenance_requires_release_api_proof(direct_vm, direct_
     source_url = f"https://github.com/acme/accordant/releases/tag/{tag}"
     direct_vm.mock_web(r"https://api\.github\.com/repos/acme/accordant$", {"status": 200, "body": json.dumps({"full_name": "acme/accordant", "owner": {"login": "acme"}})})
     direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/releases/tags/{tag}$", {"status": 200, "body": json.dumps({"tag_name": tag, "html_url": source_url, "target_commitish": release_commit})})
-    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{release_commit}$", {"status": 200, "body": json.dumps({"sha": release_commit, "html_url": f"https://github.com/acme/accordant/commit/{release_commit}"})})
+    direct_vm.mock_web(rf"https://api\.github\.com/repos/acme/accordant/commits/{tag}$", {"status": 200, "body": json.dumps({"sha": release_commit, "html_url": f"https://github.com/acme/accordant/commit/{release_commit}", "verification": {"verified": True, "reason": "valid", "signature": "signed release target", "payload": "release target payload", "verified_at": "2026-10-09T00:00:00Z"}})})
     direct_vm.mock_web(rf"https://github\.com/acme/accordant/releases/tag/{tag}$", {"status": 200, "body": "published release proof"})
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "release verified"}, {"index": 1, "status": "MET", "explanation": "release verified"}]}))
     refs = [
@@ -571,7 +580,7 @@ def test_github_release_provenance_requires_release_api_proof(direct_vm, direct_
     ]
     result = _submit(contract, direct_vm, active, direct_bob, refs)
     assert result["result"] == "ACCEPTED"
-    assert "GITHUB_RELEASE" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
+    assert "GITHUB_RELEASE_SIGNED" in contract.get_attempts(active, 0, 20)["items"][0]["authenticity_json"]
 
 
 def test_transaction_provenance_requires_matching_explorer_record(direct_vm, direct_deploy, direct_alice, direct_bob):

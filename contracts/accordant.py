@@ -389,6 +389,20 @@ class Accordant(gl.Contract):
             "contract": str(ref.get("contract", "")).strip().lower(),
         }
 
+    def _github_signature_metadata(self, proof: dict) -> dict:
+        verification = proof.get("verification") if isinstance(proof.get("verification"), dict) else {}
+        signature = str(verification.get("signature", "")).strip()
+        payload = str(verification.get("payload", "")).strip()
+        verified_at = str(verification.get("verified_at", "")).strip()
+        if verification.get("verified") is not True or str(verification.get("reason", "")).lower() != "valid" or not signature or not payload or not verified_at:
+            return {}
+        return {
+            "signature_verified": True,
+            "signature_digest": hashlib.sha256(signature.encode("utf-8")).hexdigest(),
+            "signed_payload_digest": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+            "verified_at": verified_at,
+        }
+
     def _verify_github_source(self, ref: dict, policy: dict, fetch) -> dict:
         metadata = self._source_metadata(ref)
         owner, repo = self._repo_parts(metadata["repository"])
@@ -438,8 +452,11 @@ class Accordant(gl.Contract):
             expected_url = f"https://github.com/{owner}/{repo}/commit/{revision}".lower()
             if canonical_sha != revision.lower() or html_url != expected_url:
                 return {"ok": False, "method": "GITHUB_COMMIT", "reason": "commit SHA or repository URL did not match"}
+            signature = self._github_signature_metadata(proof)
+            if not signature:
+                return {"ok": False, "method": "GITHUB_COMMIT", "reason": "commit signature was not cryptographically verified by GitHub"}
             proof_digest = hashlib.sha256((repo_body + proof_body).encode("utf-8")).hexdigest()
-            return {"ok": True, "method": "GITHUB_COMMIT", "proof_digest": proof_digest, "repository": f"{owner}/{repo}", "revision": revision.lower()}
+            return {"ok": True, "method": "GITHUB_COMMIT_SIGNED", "proof_digest": proof_digest, "repository": f"{owner}/{repo}", "revision": revision.lower(), **signature}
 
         proof_status, proof_body = self._response_body(fetch(f"https://{GITHUB_API_HOST}/repos/{owner}/{repo}/releases/tags/{revision}"))
         if proof_status != 200:
@@ -452,17 +469,23 @@ class Accordant(gl.Contract):
         target_commitish = str(proof.get("target_commitish", "")).strip()
         if str(proof.get("tag_name", "")) != revision or html_url != f"https://github.com/{owner}/{repo}/releases/tag/{revision}".lower() or not target_commitish:
             return {"ok": False, "method": "GITHUB_RELEASE", "reason": "release tag or repository URL did not match"}
-        target_body = ""
-        if re.match(r"^[0-9a-fA-F]{40}$", target_commitish):
-            target_status, target_body = self._response_body(fetch(f"https://{GITHUB_API_HOST}/repos/{owner}/{repo}/commits/{target_commitish}"))
-            try:
-                target_proof = json.loads(target_body)
-            except Exception:
-                target_proof = {}
-            if target_status != 200 or str(target_proof.get("sha", "")).lower() != target_commitish.lower():
-                return {"ok": False, "method": "GITHUB_RELEASE", "reason": "release target commit was unavailable or did not match"}
+        target_status, target_body = self._response_body(fetch(f"https://{GITHUB_API_HOST}/repos/{owner}/{repo}/commits/{revision}"))
+        try:
+            target_proof = json.loads(target_body)
+        except Exception:
+            target_proof = {}
+        target_sha = str(target_proof.get("sha", "")).lower()
+        target_url = str(target_proof.get("html_url", "")).lower().rstrip("/")
+        expected_target_url = f"https://github.com/{owner}/{repo}/commit/{target_sha}".lower()
+        if target_status != 200 or not re.match(r"^[0-9a-f]{40}$", target_sha) or target_url != expected_target_url:
+            return {"ok": False, "method": "GITHUB_RELEASE", "reason": "release target commit was unavailable or did not match"}
+        if re.match(r"^[0-9a-fA-F]{40}$", target_commitish) and target_sha != target_commitish.lower():
+            return {"ok": False, "method": "GITHUB_RELEASE", "reason": "release target commit did not match the release proof"}
+        signature = self._github_signature_metadata(target_proof)
+        if not signature:
+            return {"ok": False, "method": "GITHUB_RELEASE", "reason": "release target commit signature was not cryptographically verified by GitHub"}
         proof_digest = hashlib.sha256((repo_body + proof_body + target_body).encode("utf-8")).hexdigest()
-        return {"ok": True, "method": "GITHUB_RELEASE", "proof_digest": proof_digest, "repository": f"{owner}/{repo}", "revision": revision}
+        return {"ok": True, "method": "GITHUB_RELEASE_SIGNED", "proof_digest": proof_digest, "repository": f"{owner}/{repo}", "revision": revision, "target_commit": target_sha, **signature}
 
     def _verify_transaction_source(self, ref: dict, policy: dict, fetch) -> dict:
         metadata = self._source_metadata(ref)
