@@ -60,7 +60,7 @@ Mitigation: the frontend uses one pending guard per action, separates protocol t
 Mitigation: engagement creation is payable and the exact deposit is included in the frozen terms digest. Held, claimable, pending-requester, pending-performer, withdrawn, and refunded amounts are distinct fields. Native GEN transfers enter an explicit pending state, and recipient confirmation is required before the contract marks the economic outcome as settled.
 
 ### Premature payout after acceptance
-Mitigation: an accepted attempt opens a bounded challenge window. The performer cannot initiate payout while it is open; a challenge can uphold and return the engagement to `ACTIVE`/`HELD`, while a rejected or inconclusive challenge releases the claimable path only after the deadline.
+Mitigation: an accepted attempt opens a bounded challenge window. The performer cannot initiate payout while it is open; a challenge can uphold and return the engagement to `ACTIVE`/`HELD`, while a rejected or inconclusive challenge preserves the original deadline and keeps the challenge path open until that deadline.
 
 ### Closure disagreement or stale allocation
-Mitigation: either participant can propose closure only with an exact allocation equal to the current held plus claimable balance. The second participant must approve the same digest, and each recipient separately confirms their emitted transfer.
+Mitigation: either participant can propose closure only with an exact allocation equal to the current held plus claimable balance. The second participant must approve the same digest, and each recipient separately confirms their emitted transfer. An unexecuted closure expires after a bounded one-hour window; either participant can cancel it before execution or expire it afterward, and the contract restores the exact prior settlement state so an unapproved proposal cannot strand payout or recovery.

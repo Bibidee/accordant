@@ -32,10 +32,10 @@ Acceptance is no longer only a status change.
 - A second withdrawal or confirmation is rejected.
 - The requester has no administrator or override method and cannot rewrite accepted terms or invalidate a valid outcome.
 - An upheld challenge returns the engagement to `ACTIVE` and restores the funds to `HELD`.
-- A rejected or inconclusive challenge allows the claimable payout path after the challenge deadline.
+- A rejected or inconclusive challenge preserves the original challenge deadline and keeps the challenge path open until that deadline; it cannot unlock payout early or consume the requester’s remaining challenge opportunity.
 - Performer decline, requester cancellation, proposal expiry, and active-delivery expiry all have explicit refund paths.
 - Refunds are pending until requester confirmation; pending transfers are not counted as settled.
-- Mutual closure requires both participants to approve the same exact allocation digest and both recipients to confirm their transfers.
+- Mutual closure requires both participants to approve the same exact allocation digest and both recipients to confirm their transfers. An unexecuted closure has a bounded one-hour window; either participant can cancel it before execution, or either participant can expire it afterward, restoring the exact prior settlement state.
 
 The settlement ledger keeps held, claimable, pending, withdrawn, and refunded amounts separate. This makes the economic consequence independently queryable and prevents premature release or double withdrawal.
 
@@ -89,6 +89,7 @@ ACCORDANT preserves append-only milestone acceptance while preventing repeated n
 - Only an engagement participant can challenge, the challenge count is bounded, and challenge evidence is independently fingerprinted.
 - Challenge resolution is neutral consensus over `UPHELD`, `REJECTED`, or `INCONCLUSIVE`.
 - No participant can unilaterally rewrite frozen terms, bypass accrued rights, or close an allocation without the other participant’s approval.
+- The agreement page shows the closure countdown, prior settlement state, and the appropriate cancel or expire recovery action; it hides resolved closure records from the active approval surface.
 
 ## 4. Transaction correctness
 
@@ -104,13 +105,15 @@ ACCORDANT preserves append-only milestone acceptance while preventing repeated n
 
 ### Direct Mode contract tests
 
-16 tests passed against the production contract source and pinned GenLayer testing bundle. Coverage includes:
+17 tests passed against the production contract source and pinned GenLayer testing bundle. Coverage includes:
 
 - payable escrow and pending payout/refund confirmation;
 - challenge-window enforcement and challenge outcomes;
 - premature release and double-withdrawal protection;
 - performer decline, requester cancellation, proposal expiry, and delivery expiry recovery;
 - mutual closure and two-sided transfer confirmation;
+- closure cancellation/expiry, stale approval rejection, and restoration of the prior settlement state;
+- requester protection against rejected and performer-initiated inconclusive challenges shortening the original challenge window;
 - role authorization and role-specific indexes;
 - malformed evidence, mutable/durable policy enforcement, unavailable evidence, and malicious validator outputs;
 - semantic replay, repeated submissions, pagination, and attempt limits;
