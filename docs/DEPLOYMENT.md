@@ -28,11 +28,11 @@ This file records facts observed while building, deploying, and verifying the cu
 
 ## Contract deployment
 
-- Current contract address: `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`.
-- Deployment transaction: `0xc510662ea42ae15200d67a749b341c996f3f1d5974d9b977a793a16dc5f6a50a`.
-- Deployment explorer: https://explorer-studio.genlayer.com/tx/0xc510662ea42ae15200d67a749b341c996f3f1d5974d9b977a793a16dc5f6a50a
+- Current contract address: `0xF34B9BbA585137b05Fc00a3921297614661D836D`.
+- Deployment transaction: `0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`.
+- Deployment explorer: https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb
 - Deployment status: `FINALIZED`; result: `MAJORITY_AGREE`.
-- Deployment source SHA-256: `CC0EC42ADA86145EA0308BD173FFBD3FCDB854BD0FB2C60C1886562CD00FCABA`.
+- Deployment source SHA-256: `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88`.
 - The final revision adds payable GEN escrow, frozen evidence policy, bounded challenges, preserved challenge deadlines, explicit pending transfers, recipient confirmations, bounded mutual closure recovery, and GitHub-signature-verified immutable evidence provenance.
 - Previous deployment addresses are superseded because the contract storage and economic state schema changed.
 - The fresh schema includes role-specific pagination, escrow accounting, challenge history, closure state, and transfer-confirmation views.
@@ -49,9 +49,9 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 
 - Production URL: https://accordant.vercel.app
 - Vercel project: `bibidees-projects/accordant`.
-- Production deployment: https://vercel.com/bibidees-projects/accordant/2jxcrQMDbsQB14TE3Bt92f9efTth (`READY`).
-- Generated deployment URL: https://accordant-qmco1f3rp-bibidees-projects.vercel.app
-- Production runtime source tree: protected-master merge commit `078bf033c7b8db72c0dc47c23d56e19cc859a6ff` (fresh production deployment `2jxcrQMDbsQB14TE3Bt92f9efTth`).
+- Production deployment: https://vercel.com/bibidees-projects/accordant/DkWLv3wJnGTVqxSK6WTo5YtkEgrh (`READY`).
+- Generated deployment URL: https://accordant-qdryrvt0u-bibidees-projects.vercel.app
+- Production runtime source tree: protected-master merge commit `b638ef5148d91e378113931872b95e2cd0eb6b45` (fresh production deployment `DkWLv3wJnGTVqxSK6WTo5YtkEgrh`).
 - `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
@@ -70,27 +70,27 @@ The following checks passed locally:
 - GitHub Actions uses Node 24-compatible `checkout@v7`, `setup-node@v7`, and `setup-python@v7` actions.
 - `git diff --check`.
 - Direct Mode — 17 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, preserved challenge deadlines, closure cancellation/expiry and state restoration, challenges, policy enforcement, cryptographically verified GitHub commit/release provenance, unsigned-proof fail-closed behavior, Studionet receipt provenance, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
-- Deployed schema query at `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, closure confirmation views, and stored authenticity proof metadata.
+- Deployed schema query at `0xF34B9BbA585137b05Fc00a3921297614661D836D`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, bounded closure recovery, closure confirmation views, and stored authenticity proof metadata.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
-- GitHub signature smoke verification — [master commit `7a015567c2119ac36e7292d0aeb868dfb9ffbd1e`](https://github.com/Bibidee/accordant/commit/7a015567c2119ac36e7292d0aeb868dfb9ffbd1e) returned `verification.verified=true`, `reason=valid`, a non-empty PGP signature, signed payload, and `verified_at` timestamp through GitHub's commit API; unsigned or incomplete proof is rejected by the contract and Direct Mode.
-- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Protected-master workflow [37864155619](https://github.com/Bibidee/accordant/actions/runs/37864155619) passed all four jobs for merge commit `078bf033c7b8db72c0dc47c23d56e19cc859a6ff`.
+- GitHub signature smoke verification — [master commit `b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45) returned `verification.verified=true`, `reason=valid`, a non-empty PGP signature, signed payload, and `verified_at` timestamp through GitHub's commit API; unsigned or incomplete proof is rejected by the contract and Direct Mode.
+- The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Protected-master workflow [37893831750](https://github.com/Bibidee/accordant/actions/runs/37893831750) passed all four jobs for merge commit `b638ef5148d91e378113931872b95e2cd0eb6b45`.
 
-The current production browser check opened `/`, `/work`, `/work/new`, `/activity`, and `/account`; each route rendered Accordant content, the account route showed Studionet `61999` and `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`, and no route had horizontal overflow. Exact interactive mobile QA was completed at `390×844`: all five routes rendered without horizontal overflow, and the responsive `Menu` opened and exposed the mobile navigation links.
+The current production browser check opened `/`, `/work`, `/work/new`, `/activity`, and `/account`; each route rendered Accordant content, the account route showed Studionet `61999` and `0xF34B9BbA585137b05Fc00a3921297614661D836D`, and no route had horizontal overflow. Exact interactive mobile QA was completed at `390×844`: all five routes rendered without horizontal overflow, and the responsive `Menu` opened and exposed the mobile navigation links.
 
 ## Final live two-wallet lifecycle (current contract)
 
-On 2026-10-09, the unlocked CLI wallets `fresh-alice` (requester, `0x7C65cE913F5665c11f1219048112C84CD6cb2a4B`) and `fresh-bob` (performer, `0x2cd419603eBa593074653930Ddc4073d4FD8fc60`) ran the complete lifecycle suite against `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`. Escrow was `0.01 GEN` per engagement. The run ended with `lifecycle: all-passed`, accepted engagement `1`, five accepted-work records, and eight incoming records.
+On 2026-10-09, the unlocked CLI wallets `fresh-alice` (requester, `0x7C65cE913F5665c11f1219048112C84CD6cb2a4B`) and `fresh-bob` (performer, `0x2cd419603eBa593074653930Ddc4073d4FD8fc60`) ran the complete lifecycle suite against `0xF34B9BbA585137b05Fc00a3921297614661D836D`. Escrow was `0.01 GEN` per engagement. The run ended with `lifecycle: all-passed`, accepted engagement `1`, five accepted-work records, and eight incoming records.
 
 | Engagement | Scenario | Evidence and settlement | Final readback |
 | ---: | --- | --- | --- |
-| 1 | accepted + performer payout | create `0xbb8bc5034d63b9950a8c2ec0c3e46adb6def8847a041fddd2a68cfc1a2d286ac`; accept `0x870f7a071df5807a417750e7d1fd3f0954c15011c60e4b639c9ae95a1a44f0e4`; evaluate `0xad46f7c5466bff85f6819cb3aa7abb41d5a822237d20cf59f4859bf4ffcbc426`; payout + confirmation `0x38b70c6f7521a52f7f830ef4d8b01292e1ac10b63e55b32e8316a26505872edd`, `0x35f5e4fde976a002fc57ed9cd298d2beabc28886d6b339a1148e769abfd4f8bb` | `COMPLETED`, `ACCEPTED`, `PAYOUT_VERIFIED` |
-| 2 | revision + retry | create `0xde066c80519ae83c47036ae7fd938afe439fffda39411844a70bb99a77476d83`; accept `0xac35622ba07ab8f7f7a5565c5095d547d7ac07d77e54da6f6c097ce7bf77cb12`; attempt 1 `0x38e3f59fa179e402e377324a52a322734d6ec6684ce5c782377c6a1f2a9e4399`; retry `0xb7ba737736ef9241e440e7c88e4b439c9bca80e177d4a52a0458ffa1a7e124c1` | `ACTIVE`, `REVISION_REQUIRED`, attempt 2, `HELD` |
-| 3 | unavailable evidence | create `0xd244570af474f74bc050cdc1ae5141e007294f46bd2753a6783079afaa28b2ee`; accept `0x87185cfb9daed4054ba5f2411538427ec56d8cc30c2b8215a3bdf5e62f0a1955`; evaluate `0xe94a88955546f31cbef1c2587b4ce1e37c9f00486f6c9de95674d38f138b19f3` | `ACTIVE`, `INCONCLUSIVE`, `HELD` |
-| 4 | performer decline + refund confirmation | create `0xb1af1f1e22684ad850ef938fbca66be40a22e78fc12484e31f2dbcdf66e3d570`; decline `0x5e6ab61c3c2bced9c0d314bd9552c43d6ee50363155fa84f5da1cb071b0812d5`; refund confirmation `0x79b79a4fadbfa42c6cb40f4e52b9d9b062ec849fd4d56a177abc809a4ce598ef` | `DECLINED`, `REFUNDED` |
-| 5 | requester cancel + refund confirmation | create `0xf4af7db90a6fec3eecfe7f62172c5328d5d97052ece0ed257971d41924537775`; cancel `0xf4f82f5184c96cc53a87afcad0a04681d9ecbba2d06ce2050296dbc681c8dc87`; refund confirmation `0x99c98c79b22f32160b5843a32609259faee63671bff785a7f7c9a2bfb131aebe` | `CANCELLED`, `REFUNDED` |
-| 6 | proposal expiry + refund confirmation | create `0x3410f90f08646166e76c2dc8ffd376185c23b462582031e352e44a11ddfc5e8b`; close expired `0x4c230ce512d0996c10c97bee6b2e6ae7ad8b8cbe14382a83f5c92998a9162fa9`; refund confirmation `0xbc4a1751bd04110ee7c31b063a96fee4b2d274925041c8d6da2942f640196cf8` | `EXPIRED`, `REFUNDED` |
-| 7 | active delivery expiry + refund confirmation | create `0xd2183833c95244209966def7430cb98de94154d7b947806f02c10452c5f7d15b`; accept `0x6a6c4915ed92dbfb330fdc9f6dd532394195364cd16d9b63b0ccb7c1e2ff7b1a`; close expired `0xa0ef82f2b30ab736edf0fd1a9b45240603d92941410ec11f7a7ff831a6f72d56`; refund confirmation `0x05f2716abd7fa8c2b89d4a8357818f9c1c3077297ff14c1077a81b03895832ce` | `EXPIRED`, `REFUNDED` |
-| 8 | mutual closure + two-sided confirmation | request `0x4fa53546f885d2eb2616f04634335b2e9984900952b34f91f9dee3386cbcdb7b`; requester confirmation `0x41130c7859107a4d6d0923dab9dc42d50e350bc15f2d3b13d9365b2f3f3ae222`; performer confirmation `0xa87ada774c7acf22b05446c7f6acf9c9fda0b41dd493243ef5f2176d371524d2` | `CLOSED`, `CLOSED_SETTLED` |
+| 1 | accepted + performer payout | create `0xaa9af6eb52dd617cabcd8287c2655c17cccd384a3855a12ee293e2d6a1c36c61`; accept `0xd8e7cf3fad151154f1cefb568e900bd2e679f3b0f08c86a9af1706cb1775ab87`; evaluate `0xc2be0714373824401108931c5d59e4534519f477ee188fc72edce387d572b0cf`; payout + confirmation `0xee3e4149a0ce60ddb320c050dac2044bb090d140ff08fa0d27aa0f4d4bb4f4da`, `0xd0f6b44c681779e6006313885f3f9b51f64623497d8530cd0aade18792614dd0` | `COMPLETED`, `ACCEPTED`, `PAYOUT_VERIFIED` |
+| 2 | revision + retry | create `0x3f6ed9ee790c9bc2467f4c358ac84b3bfe481b1f969d8c08fb9c9a207c288912`; accept `0x59468a4d7f1c5241b660330942618229f5abd9c2d80c76af954647d459580840`; attempt 1 `0x4bf7734766e62f7239ff12b5e28da56f7d8cf62fbd59be5873432e40da9b2520`; retry `0x800934d53967c4b14dede37a3724450c1896c40a2540bfa441f0b2787983aab8` | `ACTIVE`, `REVISION_REQUIRED`, attempt 2, `HELD` |
+| 3 | unavailable evidence | create `0x65c12f2d23db37fcaf86b071e15e6b30ab34480b80bedb3b81b7bc17914ce698`; accept `0x69a384def92280844e84e6dbc908fcc25c9ca9d70a6e1eff33adc216747f6517`; evaluate `0x7e35384952672f715835826c4441d4754234d7f8f3f38b5436fa6f9bb096337a` | `ACTIVE`, `INCONCLUSIVE`, `HELD` |
+| 4 | performer decline + refund confirmation | create `0x0e99e125468be69b401a70b167562700c649544a7182a5d1681e063f58f1b4b7`; decline `0xccc7a8ed407b2f29936b71f9deb07436c407808576a5a051a97f18789cf6e291`; refund confirmation `0x30432f0ab87bc77d224d7d6e8db91159c7a6abe3c0ad50a32eb270415116f30d` | `DECLINED`, `REFUNDED` |
+| 5 | requester cancel + refund confirmation | create `0x60f3ee8df52ee4fba481ea3eec53ac801490416351062a5c5e8e0d73d634114c`; cancel `0xc4e5672edacec402ee4d9c20e90d8737134598082fd9e00e7a54350ac36da520`; refund confirmation `0x3395514b990be15214ae99333d6389ba862af4540da5153411a497b4f254a685` | `CANCELLED`, `REFUNDED` |
+| 6 | proposal expiry + refund confirmation | create `0x2b4d4641fb829d5ccc1c643ffe963f9f01d3d99e3107300abd7e0ead54beb267`; close expired `0xde4f6cb8d475ad601981ca9631c7e259fc5ed9d79596be2d0679b47d4bfc966c`; refund confirmation `0x11dc623012b3e9a44233554075251702f36576fba02e833540138ec3b570673a` | `EXPIRED`, `REFUNDED` |
+| 7 | active delivery expiry + refund confirmation | create `0x33d2473412f330322e691123c314bbe86b70f5908d600ca4aecd5a2134d81118`; accept `0x8ac268e88268ae2b05272df8d7ad1f5758a7f6da913ca6587d81466eac9cba4a`; close expired `0x676cd73776391691d273e2b09c03b9681b9f221714f7aaf4611d60832d5cdbed`; refund confirmation `0xc4c8369bc44bea31b506ed032fbb860b4c7fc33ad1878155e42a9bc6119374cc` | `EXPIRED`, `REFUNDED` |
+| 8 | mutual closure + two-sided confirmation | request `0x206bd2e82363415db1fa7d5a2cb7ff2b582846aebec3de0718aed3f7dfb3cd7b`; requester confirmation `0x2b98f8d2e61bcfa4f0e033a48518b76b2cb8729d9d0cec95c280cbd8af2f7446`; performer confirmation `0x8036dfeb40c95e80c92b4391368834ed680a6a1959c6f72f3bba8b60accb7c7e` | `CLOSED`, `CLOSED_SETTLED` |
 
 Every transaction finalized successfully. Pending payout/refund/closure transfers were not counted as settled until the intended recipient submitted the corresponding confirmation.
 
@@ -182,6 +182,6 @@ The canonical attempt ledger contains exactly two attempts: attempt 1 is `REVISI
 
 ## Provenance and verification notes
 
-The final deployable contract source hashes to `CC0EC42ADA86145EA0308BD173FFBD3FCDB854BD0FB2C60C1886562CD00FCABA` and is deployed at `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`. The protected-master release commit is `078bf033c7b8db72c0dc47c23d56e19cc859a6ff`; its four-job verification is [workflow run 37864155619](https://github.com/Bibidee/accordant/actions/runs/37864155619).
+The final deployable contract source hashes to `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` and is deployed at `0xF34B9BbA585137b05Fc00a3921297614661D836D`. The protected-master release commit is `b638ef5148d91e378113931872b95e2cd0eb6b45`; its four-job verification is [workflow run 37893831750](https://github.com/Bibidee/accordant/actions/runs/37893831750).
 
 The `Protect master` repository ruleset is active (ID `24645498`) for `refs/heads/master`, blocking deletion and non-fast-forward updates and requiring Web, Direct Mode, production audit, and Required CI gate checks. GitHub shows all current commits authored and committed by Bibidee; no Codex-authored history rewrite was necessary.
