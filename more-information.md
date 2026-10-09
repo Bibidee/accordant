@@ -13,12 +13,12 @@ This document records how ACCORDANT addresses the requested consequential settle
 | Repository | [Bibidee/accordant](https://github.com/Bibidee/accordant) |
 | Production app | [accordant.vercel.app](https://accordant.vercel.app) |
 | Network | GenLayer Studionet, chain `61999` |
-| Current contract | `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6` |
-| Deployment receipt | [`0xc510662e…`](https://explorer-studio.genlayer.com/tx/0xc510662ea42ae15200d67a749b341c996f3f1d5974d9b977a793a16dc5f6a50a) — `FINALIZED` |
-| Contract source SHA-256 | `CC0EC42ADA86145EA0308BD173FFBD3FCDB854BD0FB2C60C1886562CD00FCABA` |
-| Protected master | `57f471d524a3dae2241dc01890a3f24910ea852e` |
-| Final protected CI | [run `37864531578`](https://github.com/Bibidee/accordant/actions/runs/37864531578) — all four jobs passed |
-| Vercel deployment | [`2jxcrQMDbsQB14TE3Bt92f9efTth`](https://vercel.com/bibidees-projects/accordant/2jxcrQMDbsQB14TE3Bt92f9efTth) — `READY` |
+| Current contract | `0xF34B9BbA585137b05Fc00a3921297614661D836D` |
+| Deployment receipt | [`0x788bf4a4…`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb) — `FINALIZED` |
+| Contract source SHA-256 | `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` |
+| Protected master | `b638ef5148d91e378113931872b95e2cd0eb6b45` |
+| Final protected CI | [run `37893831750`](https://github.com/Bibidee/accordant/actions/runs/37893831750) — all four jobs passed |
+| Vercel deployment | [`DkWLv3wJnGTVqxSK6WTo5YtkEgrh`](https://vercel.com/bibidees-projects/accordant/DkWLv3wJnGTVqxSK6WTo5YtkEgrh) — `READY` |
 
 ## 1. Consequential acceptance and settlement
 
@@ -54,7 +54,7 @@ The evidence must declare a GitHub repository, an immutable full commit SHA or r
 5. The GitHub proof contains a non-empty cryptographic signature, signed payload, and verification timestamp.
 6. Signature and signed-payload digests are stored in the attempt’s `authenticity_json`.
 
-Unsigned, incomplete, forged, mismatched, or merely commit-looking URLs fail closed. The current signed master commit used for verification is [`57f471d524a3dae2241dc01890a3f24910ea852e`](https://github.com/Bibidee/accordant/commit/57f471d524a3dae2241dc01890a3f24910ea852e); GitHub reports it as verified with reason `valid`.
+Unsigned, incomplete, forged, mismatched, or merely commit-looking URLs fail closed. The current signed master commit used for verification is [`b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45); GitHub reports it as verified with reason `valid`.
 
 ### `TRANSACTION`
 
