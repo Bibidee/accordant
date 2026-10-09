@@ -448,6 +448,7 @@ def test_challenge_can_restore_held_funds_and_rejected_challenge_can_release_the
     direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "proof"})
     direct_vm.mock_llm(r".*", json.dumps({"decisions": [{"index": 0, "status": "MET", "explanation": "ok"}, {"index": 1, "status": "MET", "explanation": "ok"}]}))
     _submit(contract, direct_vm, released, direct_bob, [_ref(0, "released-a"), _ref(1, "released-b")])
+    original_deadline = contract.get_engagement(released)["challenge_deadline"]
     direct_vm.clear_mocks()
     direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "weak challenge"})
     direct_vm.mock_llm(r".*", json.dumps({"outcome": "REJECTED"}))
@@ -455,8 +456,24 @@ def test_challenge_can_restore_held_funds_and_rejected_challenge_can_release_the
     rejected = contract.challenge_attempt(released, 1, 0, json.dumps([_ref(0, "rejected-challenge")]))
     assert rejected["outcome"] == "REJECTED"
     released_state = contract.get_engagement(released)
-    assert released_state["settlement_state"] == "CLAIMABLE"
-    direct_vm.warp("2030-01-01T00:00:01Z")
+    assert released_state["settlement_state"] == "CHALLENGE_WINDOW"
+    assert released_state["challenge_deadline"] == original_deadline
+
+    # A performer-initiated inconclusive challenge cannot shorten the
+    # requester's remaining protection window or disable another challenge.
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r"https://evidence\.example/.*", {"status": 200, "body": "ambiguous self challenge"})
+    direct_vm.mock_llm(r".*", json.dumps({"outcome": "INCONCLUSIVE"}))
+    direct_vm.sender = direct_bob
+    inconclusive = contract.challenge_attempt(released, 1, 0, json.dumps([_ref(0, "inconclusive-self-challenge")]))
+    assert inconclusive["outcome"] == "INCONCLUSIVE"
+    protected = contract.get_engagement(released)
+    assert protected["settlement_state"] == "CHALLENGE_WINDOW"
+    assert protected["challenge_deadline"] == original_deadline
+    with direct_vm.expect_revert("challenge window is still open"):
+        contract.withdraw_performer(released)
+
+    direct_vm.warp("2030-01-01T01:00:01Z")
     direct_vm.sender = direct_bob
     contract.withdraw_performer(released)
     assert contract.get_engagement(released)["pending_performer_amount"] == 10**18
@@ -495,6 +512,50 @@ def test_mutual_closure_settles_held_balance_and_requires_both_wallets(direct_vm
     assert settled["withdrawn_amount"] == 6 * 10**17
     with direct_vm.expect_revert("cannot be mutually closed"):
         contract.request_closure(engagement_id, 0, 0, 8)
+
+
+def test_open_closure_can_be_cancelled_or_expired_without_stranding_settlement(direct_vm, direct_deploy, direct_alice, direct_bob):
+    direct_vm.warp(BASE)
+    contract = direct_deploy("contracts/accordant.py")
+
+    active = _active(contract, direct_vm, direct_alice, direct_bob)
+    direct_vm.sender = direct_alice
+    contract.request_closure(active, 4 * 10**17, 6 * 10**17, 11)
+    open_closure = contract.get_closure(active)
+    assert open_closure["status"] == "OPEN"
+    assert open_closure["previous_settlement_state"] == "HELD"
+    assert open_closure["closure_deadline"] > open_closure["created_at"]
+    with direct_vm.expect_revert("Resolve the mutual closure first"):
+        _submit(contract, direct_vm, active, direct_bob, [_ref(0, "blocked-by-closure"), _ref(1, "blocked-by-closure-b")])
+
+    # Either participant can cancel an unexecuted proposal and restore ACTIVE/HELD.
+    direct_vm.sender = direct_bob
+    contract.cancel_closure(active)
+    cancelled_state = contract.get_engagement(active)
+    assert cancelled_state["status"] == "ACTIVE"
+    assert cancelled_state["settlement_state"] == "HELD"
+    assert contract.get_closure(active)["status"] == "CANCELLED"
+
+    # A completed engagement restores its original challenge-window state after
+    # a closure proposal expires, including the original deadline.
+    completed = _active(contract, direct_vm, direct_alice, direct_bob)
+    _mock_validator(direct_vm, ["MET", "MET"])
+    _submit(contract, direct_vm, completed, direct_bob, [_ref(0, "closure-expiry-a"), _ref(1, "closure-expiry-b")])
+    before = contract.get_engagement(completed)
+    direct_vm.sender = direct_alice
+    contract.request_closure(completed, 0, 10**18, 12)
+    direct_vm.sender = direct_bob
+    with direct_vm.expect_revert("Closure deadline has not passed"):
+        contract.expire_closure(completed)
+    direct_vm.warp("2030-01-01T01:00:01Z")
+    with direct_vm.expect_revert("approval window has expired"):
+        contract.approve_closure(completed, contract.get_closure(completed)["digest"])
+    contract.expire_closure(completed)
+    restored = contract.get_engagement(completed)
+    assert restored["status"] == "COMPLETED"
+    assert restored["settlement_state"] == "CHALLENGE_WINDOW"
+    assert restored["challenge_deadline"] == before["challenge_deadline"]
+    assert contract.get_closure(completed)["status"] == "EXPIRED"
 
 
 def test_evidence_policy_is_frozen_and_fail_closed(direct_vm, direct_deploy, direct_alice, direct_bob):

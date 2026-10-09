@@ -40,5 +40,5 @@ export type EngagementPage = {
   performer_total?: number;
 };
 export type AttemptPage = { items: Attempt[]; next_offset: number; total: number };
-export type Closure = { nonce: number; requester_amount: number; performer_amount: number; digest: string; requester_approved: boolean; performer_approved: boolean; requester_transfer_confirmed: boolean; performer_transfer_confirmed: boolean; status: string; created_at: number; executed_at: number };
+export type Closure = { nonce: number; requester_amount: number; performer_amount: number; digest: string; requester_approved: boolean; performer_approved: boolean; requester_transfer_confirmed: boolean; performer_transfer_confirmed: boolean; status: string; created_at: number; closure_deadline: number; previous_settlement_state: string; executed_at: number; resolved_at: number };
 export type ChallengePage = { items: Array<{ number: number; attempt_number: number; criterion_index: number; challenger: string; evidence_json: string; challenge_digest: string; result: string; status: string; evidence_fingerprint: string; created_at: number; resolved_at: number }>; next_offset: number; total: number };

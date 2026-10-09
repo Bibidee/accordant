@@ -23,6 +23,7 @@ MAX_POLICY_CHARS = 8000
 MAX_CHALLENGES = 3
 DEFAULT_CHALLENGE_WINDOW = 3600
 MAX_CHALLENGE_WINDOW = 7 * 24 * 60 * 60
+DEFAULT_CLOSURE_WINDOW = 3600
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 GITHUB_API_HOST = "api.github.com"
 GITHUB_WEB_HOST = "github.com"
@@ -93,7 +94,10 @@ class Closure:
     performer_approved: bool
     status: str
     created_at: u64
+    closure_deadline: u64
+    previous_settlement_state: str
     executed_at: u64
+    resolved_at: u64
     requester_transfer_confirmed: bool
     performer_transfer_confirmed: bool
 
@@ -1260,8 +1264,10 @@ Include every criterion exactly once and no extra indices."""
             e.challenge_deadline = u64(0)
             e.settlement_state = "HELD"
         else:
-            e.settlement_state = "CLAIMABLE"
-            e.challenge_deadline = u64(self._now())
+            # A rejected or inconclusive challenge does not waive the original
+            # protection window. Keep the challenge path open until the
+            # deadline that was frozen when the accepted attempt settled.
+            e.settlement_state = "CHALLENGE_WINDOW"
         return {"challenge": challenge_number, "outcome": outcome, "evidence_fingerprint": str(result.get("evidence_fingerprint", ""))}
 
     @gl.public.write
@@ -1279,11 +1285,13 @@ Include every criterion exactly once and no extra indices."""
         available = int(e.held_amount) + int(e.claimable_amount)
         if requester_share < 0 or performer_share < 0 or requester_share + performer_share != available:
             raise gl.vm.UserError("Closure allocation must equal the available engagement balance")
+        now = self._now()
         digest = hashlib.sha256(json.dumps({"engagement_id": engagement_id, "terms_digest": e.terms_digest, "nonce": int(nonce), "requester_amount": requester_share, "performer_amount": performer_share, "available": available}, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         self.closures[engagement_id] = Closure(
             nonce=nonce, requester_amount=u256(requester_share), performer_amount=u256(performer_share), digest=digest,
             requester_approved=sender == e.requester, performer_approved=sender == e.performer,
-            status="OPEN", created_at=u64(self._now()), executed_at=u64(0),
+            status="OPEN", created_at=u64(now), closure_deadline=u64(now + DEFAULT_CLOSURE_WINDOW),
+            previous_settlement_state=e.settlement_state, executed_at=u64(0), resolved_at=u64(0),
             requester_transfer_confirmed=False, performer_transfer_confirmed=False,
         )
         e.settlement_state = "CLOSURE_PENDING"
@@ -1295,6 +1303,8 @@ Include every criterion exactly once and no extra indices."""
         closure = self.closures.get(engagement_id)
         if closure is None or closure.status != "OPEN" or closure.digest != digest:
             raise gl.vm.UserError("Closure approval does not match the open terms")
+        if self._now() > int(closure.closure_deadline):
+            raise gl.vm.UserError("Closure approval window has expired; expire the closure first")
         sender = gl.message.sender_address
         if sender == e.requester:
             if closure.requester_approved:
@@ -1326,6 +1336,34 @@ Include every criterion exactly once and no extra indices."""
         self.total_committed += u256(available)
         self._emit_to(e.requester, int(closure.requester_amount))
         self._emit_to(e.performer, int(closure.performer_amount))
+
+    @gl.public.write
+    def cancel_closure(self, engagement_id: str) -> None:
+        e = self._get(engagement_id)
+        closure = self.closures.get(engagement_id)
+        if closure is None or closure.status != "OPEN":
+            raise gl.vm.UserError("No open mutual closure can be cancelled")
+        sender = gl.message.sender_address
+        if sender != e.requester and sender != e.performer:
+            raise gl.vm.UserError("Only an engagement participant can cancel closure")
+        e.settlement_state = closure.previous_settlement_state
+        closure.status = "CANCELLED"
+        closure.resolved_at = u64(self._now())
+
+    @gl.public.write
+    def expire_closure(self, engagement_id: str) -> None:
+        e = self._get(engagement_id)
+        closure = self.closures.get(engagement_id)
+        if closure is None or closure.status != "OPEN":
+            raise gl.vm.UserError("No open mutual closure can expire")
+        sender = gl.message.sender_address
+        if sender != e.requester and sender != e.performer:
+            raise gl.vm.UserError("Only an engagement participant can expire closure")
+        if self._now() <= int(closure.closure_deadline):
+            raise gl.vm.UserError("Closure deadline has not passed")
+        e.settlement_state = closure.previous_settlement_state
+        closure.status = "EXPIRED"
+        closure.resolved_at = u64(self._now())
 
     @gl.public.write
     def confirm_closure_transfer(self, engagement_id: str) -> None:
@@ -1376,7 +1414,7 @@ Include every criterion exactly once and no extra indices."""
         closure = self.closures.get(engagement_id)
         if closure is None:
             return {"status": "NONE"}
-        return {"nonce": int(closure.nonce), "requester_amount": int(closure.requester_amount), "performer_amount": int(closure.performer_amount), "digest": closure.digest, "requester_approved": bool(closure.requester_approved), "performer_approved": bool(closure.performer_approved), "requester_transfer_confirmed": bool(closure.requester_transfer_confirmed), "performer_transfer_confirmed": bool(closure.performer_transfer_confirmed), "status": closure.status, "created_at": int(closure.created_at), "executed_at": int(closure.executed_at)}
+        return {"nonce": int(closure.nonce), "requester_amount": int(closure.requester_amount), "performer_amount": int(closure.performer_amount), "digest": closure.digest, "requester_approved": bool(closure.requester_approved), "performer_approved": bool(closure.performer_approved), "requester_transfer_confirmed": bool(closure.requester_transfer_confirmed), "performer_transfer_confirmed": bool(closure.performer_transfer_confirmed), "status": closure.status, "created_at": int(closure.created_at), "closure_deadline": int(closure.closure_deadline), "previous_settlement_state": closure.previous_settlement_state, "executed_at": int(closure.executed_at), "resolved_at": int(closure.resolved_at)}
 
     @gl.public.view
     def get_engagement(self, engagement_id: str) -> dict:

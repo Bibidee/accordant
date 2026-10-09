@@ -53,7 +53,7 @@ export default function EngagementPage({ params }: { params: Promise<{ engagemen
     const next = await readContract<Engagement>("get_engagement", [id]);
     setItem(next);
     const currentClosure = await readContract<Closure & { status: "NONE" }>("get_closure", [id]).catch(() => null);
-    setClosure(currentClosure?.status === "NONE" ? null : currentClosure);
+    setClosure(currentClosure && ["OPEN", "EXECUTED"].includes(currentClosure.status) ? currentClosure : null);
     return next;
   }
 
@@ -126,6 +126,7 @@ export default function EngagementPage({ params }: { params: Promise<{ engagemen
   const needsPerformerApproval = hasOpenClosure && !closure?.performer_approved && performer;
   const needsRequesterTransferConfirmation = closureTransferPending && !closure?.requester_transfer_confirmed && requester;
   const needsPerformerTransferConfirmation = closureTransferPending && !closure?.performer_transfer_confirmed && performer;
+  const closureExpired = hasOpenClosure && Boolean(closure?.closure_deadline && now > closure.closure_deadline);
 
   return <div className="workspace">
     <section className="doc">
@@ -155,7 +156,7 @@ export default function EngagementPage({ params }: { params: Promise<{ engagemen
 
       {canClose && <div className="panel actionPanel"><div className="eyebrow">Mutual closure</div><h3>Agree the final settlement</h3><p className="muted">Both parties must approve the exact GEN allocation. The amounts must equal all currently held and claimable funds.</p><div className="deadlineGrid"><label className="field">Requester share (GEN)<input value={closureRequesterAmount} onChange={(e) => setClosureRequesterAmount(e.target.value)} inputMode="decimal" /></label><label className="field">Performer share (GEN)<input value={closurePerformerAmount} onChange={(e) => setClosurePerformerAmount(e.target.value)} inputMode="decimal" /></label></div><label className="field">Closure nonce<input value={closureNonce} onChange={(e) => setClosureNonce(e.target.value)} inputMode="numeric" /></label><button disabled={disabled} onClick={() => { try { void action("request_closure", [engagementId, parseGenAmount(closureRequesterAmount), parseGenAmount(closurePerformerAmount), BigInt(closureNonce)]); } catch (e) { setError(e instanceof Error ? e.message : "Enter valid settlement amounts."); } }}>Request mutual closure</button></div>}
 
-      {hasOpenClosure && <div className="panel actionPanel"><div className="eyebrow">Closure approval</div><h3>Review and sign the exact settlement</h3><p className="muted">Digest <code>{closureDigest}</code></p><p>Requester: <strong>{closure?.requester_approved ? "approved" : "waiting"}</strong> · Performer: <strong>{closure?.performer_approved ? "approved" : "waiting"}</strong></p>{(needsRequesterApproval || needsPerformerApproval) && <button disabled={disabled} onClick={() => void action("approve_closure", [engagementId, closureDigest])}>Sign closure approval</button>}</div>}
+      {hasOpenClosure && <div className="panel actionPanel"><div className="eyebrow">Closure approval</div><h3>Review and sign the exact settlement</h3><p className="muted">Digest <code>{closureDigest}</code></p><p>Requester: <strong>{closure?.requester_approved ? "approved" : "waiting"}</strong> · Performer: <strong>{closure?.performer_approved ? "approved" : "waiting"}</strong></p><p className="muted">This proposal restores <strong>{closure?.previous_settlement_state}</strong> if cancelled or expired. Closure window: <strong>{closureExpired ? "expired" : `${Math.max(0, (closure?.closure_deadline || now) - now)}s remaining`}</strong>.</p>{(needsRequesterApproval || needsPerformerApproval) && !closureExpired && <button disabled={disabled} onClick={() => void action("approve_closure", [engagementId, closureDigest])}>Sign closure approval</button>}<div className="cta">{!closureExpired && <button className="secondary" disabled={disabled} onClick={() => void action("cancel_closure")}>Cancel closure proposal</button>}{closureExpired && <button className="secondary" disabled={disabled} onClick={() => void action("expire_closure")}>Expire closure and restore state</button>}</div></div>}
       {closureTransferPending && <div className="panel actionPanel"><div className="eyebrow">Transfer confirmation</div><h3>Confirm the settlement transfer you received</h3><p className="muted">The contract emitted the agreed transfer and keeps both amounts pending until each recipient confirms the exact transfer.</p><p>Requester transfer: <strong>{closure?.requester_transfer_confirmed ? "confirmed" : "pending"}</strong> · Performer transfer: <strong>{closure?.performer_transfer_confirmed ? "confirmed" : "pending"}</strong></p>{(needsRequesterTransferConfirmation || needsPerformerTransferConfirmation) && <button disabled={disabled} onClick={() => void action("confirm_closure_transfer")}>Confirm my closure transfer</button>}</div>}
 
       <div className="cta workspaceActions">

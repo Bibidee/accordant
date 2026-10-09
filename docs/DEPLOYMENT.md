@@ -33,7 +33,7 @@ This file records facts observed while building, deploying, and verifying the cu
 - Deployment explorer: https://explorer-studio.genlayer.com/tx/0xc510662ea42ae15200d67a749b341c996f3f1d5974d9b977a793a16dc5f6a50a
 - Deployment status: `FINALIZED`; result: `MAJORITY_AGREE`.
 - Deployment source SHA-256: `CC0EC42ADA86145EA0308BD173FFBD3FCDB854BD0FB2C60C1886562CD00FCABA`.
-- The final revision adds payable GEN escrow, frozen evidence policy, bounded challenges, explicit pending transfers, recipient confirmations, mutual closure, and GitHub-signature-verified immutable evidence provenance.
+- The final revision adds payable GEN escrow, frozen evidence policy, bounded challenges, preserved challenge deadlines, explicit pending transfers, recipient confirmations, bounded mutual closure recovery, and GitHub-signature-verified immutable evidence provenance.
 - Previous deployment addresses are superseded because the contract storage and economic state schema changed.
 - The fresh schema includes role-specific pagination, escrow accounting, challenge history, closure state, and transfer-confirmation views.
 
@@ -69,7 +69,7 @@ The following checks passed locally:
 - Fresh `npm ci` — completed successfully with no Windows cleanup/EPERM warning.
 - GitHub Actions uses Node 24-compatible `checkout@v7`, `setup-node@v7`, and `setup-python@v7` actions.
 - `git diff --check`.
-- Direct Mode — 16 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, challenges, policy enforcement, cryptographically verified GitHub commit/release provenance, unsigned-proof fail-closed behavior, Studionet receipt provenance, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
+- Direct Mode — 17 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, preserved challenge deadlines, closure cancellation/expiry and state restoration, challenges, policy enforcement, cryptographically verified GitHub commit/release provenance, unsigned-proof fail-closed behavior, Studionet receipt provenance, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, closure confirmation views, and stored authenticity proof metadata.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
 - GitHub signature smoke verification — [master commit `7a015567c2119ac36e7292d0aeb868dfb9ffbd1e`](https://github.com/Bibidee/accordant/commit/7a015567c2119ac36e7292d0aeb868dfb9ffbd1e) returned `verification.verified=true`, `reason=valid`, a non-empty PGP signature, signed payload, and `verified_at` timestamp through GitHub's commit API; unsigned or incomplete proof is rejected by the contract and Direct Mode.
