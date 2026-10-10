@@ -34,7 +34,7 @@ The two final contract-level findings were implemented in the closure-recovery r
 - Deployment receipt: [`0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb), `FINALIZED`.
 - Contract release source: protected-master commit [`b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45).
 - Production deployment: [`accordant.vercel.app`](https://accordant.vercel.app), READY.
-- Final documentation sync: protected-master commit `b3072caa64595c134bd1a34f6d59182d33d43380`; [CI run `37897183247`](https://github.com/Bibidee/accordant/actions/runs/37897183247) passed all four required jobs.
+- Final deployment-evidence reconciliation: [PR #27](https://github.com/Bibidee/accordant/pull/27) merged into protected `master`; [CI run `38091927331`](https://github.com/Bibidee/accordant/actions/runs/38091927331) passed all four required jobs.
 
 ## Final status
 
