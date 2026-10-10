@@ -210,6 +210,25 @@ ACCORDANT does not treat GitHub API existence or a content hash as authenticity.
 
 The remaining trust boundary is that GitHub is the verification oracle; the GenLayer contract does not run a local GPG public-key verifier. This is an explicit architectural limitation, not an unsigned-evidence gap. If independent local key verification is required beyond GitHub’s signed verification result, that would require a separate off-chain verifier or signed-attestation service.
 
+## GenLayer review request and resolution
+
+Requested by Gen. Dave on October 10, 2026.
+
+The review identified that the repository documentation did not consistently identify the current deployment: `.env.example` and `docs/DEPLOYMENT.md` named `0xF34B9B…`, while `README.md` and `HANDOFF_STATUS.md` still described superseded deployments as current or final. The review also identified a source-hash discrepancy and required independent on-chain source verification, production configuration verification, one canonical deployment record, correction of stale deployment statements, and a green protected-master CI run.
+
+The requested reconciliation is complete in protected `master` and is recorded below.
+
+### Fixes delivered
+
+- Standardized the current contract address and network across the repository documentation and example configuration.
+- Moved superseded contract addresses into clearly labelled historical sections instead of presenting them as current or final.
+- Documented both the LF-normalized and Windows CRLF source hashes, including the line-ending normalization method.
+- Added a reproducible `gen_getContractCode` verification command and recorded the decoded on-chain byte comparison.
+- Verified the effective Vercel Production contract binding through the live `/account` page because Vercel redacts the sensitive CLI value.
+- Preserved the deployment transaction, release commit, source hashes, RPC comparison, and production binding in the canonical deployment record.
+- Ran the required protected-master CI jobs successfully.
+- Made no contract-logic, frontend, economic-rule, dependency, or deployment changes; no contract redeployment was required.
+
 ## GenLayer review consistency reconciliation
 
 The deployment and documentation inconsistency identified in the October 10, 2026 review has been resolved in protected `master`.
