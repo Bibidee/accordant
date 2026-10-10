@@ -110,10 +110,19 @@ A submitted transaction receiving GenLayer `ACCEPTED` must still be shown as pro
 
 ## What this handoff is
 
-This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6`; deployment, transfer-confirmation, signed GitHub provenance verification, and live lifecycle evidence are recorded in `docs/DEPLOYMENT.md`.
+This repository contains the hardened build, the finalized Studionet deployment record, and the production frontend at https://accordant.vercel.app. The current live contract is [`0xF34B9BbA585137b05Fc00a3921297614661D836D`](https://explorer-studio.genlayer.com/address/0xF34B9BbA585137b05Fc00a3921297614661D836D); deployment, transfer-confirmation, signed GitHub provenance verification, source comparison, and live lifecycle evidence are recorded in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 Read `BUILD_PROMPT.txt` before changing anything.
 
 ## Current repository status
 
 The local build includes the real `genlayer-js` 1.1.8 adapter, injected-wallet writes, canonical reads, criterion-bound evidence forms, append-only history views, transaction-hash recovery, protocol/product-state separation, and the required routes. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for observed deployment and verification results.
+
+## Historical deployment addresses
+
+The following addresses are retained as historical evidence only and are not current production bindings:
+
+- `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6` — superseded frontend/evidence deployment.
+- `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620` — superseded economic deployment; its deployment transaction was `0xd4d089eae93409b9c89362a8bc19cd60c6a68565308a2cbcb3efd69521aafba4`.
+
+The canonical current deployment, source hashes, line-ending normalization, and independent `gen_getContractCode` comparison are maintained in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
