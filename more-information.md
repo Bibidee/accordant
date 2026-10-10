@@ -45,10 +45,13 @@ The two final contract-level findings were implemented in the closure-recovery r
 | Network | GenLayer Studionet, chain `61999` |
 | Current contract | `0xF34B9BbA585137b05Fc00a3921297614661D836D` |
 | Deployment receipt | [`0x788bf4a4…`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb) — `FINALIZED` |
-| Contract source SHA-256 | `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` |
+| Contract source SHA-256 (LF) | `C1FB993F29133272839B868B0FB3CABDE5B4E64D706FD67CA567A52EE0E7226E` |
+| Contract source SHA-256 (CRLF) | `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` |
 | Protected master | `b638ef5148d91e378113931872b95e2cd0eb6b45` |
-| Final protected CI | [run `37893831750`](https://github.com/Bibidee/accordant/actions/runs/37893831750) — all four jobs passed |
+| Contract release CI | [run `37893831750`](https://github.com/Bibidee/accordant/actions/runs/37893831750) — all four jobs passed |
 | Vercel deployment | [`DkWLv3wJnGTVqxSK6WTo5YtkEgrh`](https://vercel.com/bibidees-projects/accordant/DkWLv3wJnGTVqxSK6WTo5YtkEgrh) — `READY` |
+
+The tracked Windows source and the finalized RPC source both contain `1,495` CRLF line endings and no bare LF. `gen_getContractCode` returned the current contract source as base64; after decoding, it was an exact `87,680`-byte match to `contracts/accordant.py`. The reproducible command is `node scripts/verify-deployment-source.mjs`; it reports both the raw CRLF hash and the LF-normalized hash above. Vercel production lists `NEXT_PUBLIC_ACCORDANT_CONTRACT` for the Production target, but redacts its sensitive value from CLI pulls; the effective value was verified by the live `/account` page, which displayed the current contract and chain `61999` and contained no superseded address.
 
 ## 1. Consequential acceptance and settlement
 

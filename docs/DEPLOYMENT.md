@@ -32,10 +32,30 @@ This file records facts observed while building, deploying, and verifying the cu
 - Deployment transaction: `0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`.
 - Deployment explorer: https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb
 - Deployment status: `FINALIZED`; result: `MAJORITY_AGREE`.
-- Deployment source SHA-256: `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88`.
+- Contract release commit: `b638ef5148d91e378113931872b95e2cd0eb6b45`.
+- Source SHA-256 with LF line endings: `C1FB993F29133272839B868B0FB3CABDE5B4E64D706FD67CA567A52EE0E7226E`.
+- Source SHA-256 with CRLF line endings: `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88`.
+- The source file in this Windows checkout and the RPC response both use CRLF (`1,495` CRLF sequences, no bare LF); the raw CRLF bytes hash to `A722…`, while normalizing either copy to LF hashes to `C1FB…`.
 - The final revision adds payable GEN escrow, frozen evidence policy, bounded challenges, preserved challenge deadlines, explicit pending transfers, recipient confirmations, bounded mutual closure recovery, and GitHub-signature-verified immutable evidence provenance.
 - Previous deployment addresses are superseded because the contract storage and economic state schema changed.
 - The fresh schema includes role-specific pagination, escrow accounting, challenge history, closure state, and transfer-confirmation views.
+
+### Canonical deployment record and source verification
+
+| Field | Canonical value or evidence |
+| --- | --- |
+| Network | GenLayer Studionet (`61999`) |
+| RPC | `https://studio.genlayer.com/api` |
+| Contract | [`0xF34B9BbA585137b05Fc00a3921297614661D836D`](https://explorer-studio.genlayer.com/address/0xF34B9BbA585137b05Fc00a3921297614661D836D) |
+| Deployment transaction | [`0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb) |
+| Contract release commit | [`b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45) |
+| LF-normalized source hash | `C1FB993F29133272839B868B0FB3CABDE5B4E64D706FD67CA567A52EE0E7226E` |
+| CRLF source hash | `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` |
+| Normalization method | Decode UTF-8; replace CRLF and bare CR with LF for the LF hash; replace LF with CRLF for the CRLF hash. No source logic is changed. |
+| Independent RPC evidence | `gen_getContractCode` returned base64 source for the current address; decoded bytes were exactly `87,680` bytes and matched the tracked source byte-for-byte. Both raw hashes and the LF-normalized hashes matched. |
+| Reproducible verifier | `node scripts/verify-deployment-source.mjs` |
+
+The verifier fails if `gen_getContractCode` cannot return source or if the normalized tracked source does not match the deployed source. The deployment transaction remains linked above as the observed finalized deployment record; the source comparison is independently established by the RPC code endpoint.
 
 The deployment command was:
 
@@ -52,7 +72,7 @@ The unlocked `fresh-alice` account signed the deployment. The final receipt was 
 - Production deployment: https://vercel.com/bibidees-projects/accordant/DkWLv3wJnGTVqxSK6WTo5YtkEgrh (`READY`).
 - Generated deployment URL: https://accordant-qdryrvt0u-bibidees-projects.vercel.app
 - Production runtime source tree: protected-master merge commit `b638ef5148d91e378113931872b95e2cd0eb6b45` (fresh production deployment `DkWLv3wJnGTVqxSK6WTo5YtkEgrh`).
-- `NEXT_PUBLIC_ACCORDANT_CONTRACT` is configured to the deployed address above.
+- Vercel production lists `NEXT_PUBLIC_ACCORDANT_CONTRACT` with a Production target. Vercel redacts this sensitive value from CLI listings and pulls; the effective production value was independently checked through the rendered `/account` page, which returned HTTP 200, displayed `0xF34B9BbA585137b05Fc00a3921297614661D836D`, displayed chain `61999`, and contained neither superseded address. No Vercel configuration change was required.
 - The app displays Studionet `61999`, the correct RPC, and the fresh contract binding on `/account`.
 
 ## Verification
@@ -72,6 +92,7 @@ The following checks passed locally:
 - Direct Mode — 17 contract tests passed against the pinned GenLayer test bundle, including escrow funding, pending payout/refund confirmation, preserved challenge deadlines, closure cancellation/expiry and state restoration, challenges, policy enforcement, cryptographically verified GitHub commit/release provenance, unsigned-proof fail-closed behavior, Studionet receipt provenance, mutual closure, 121-record role/pagination, and malformed criterion cases. The GenLayer testing suite is pinned in `requirements-dev.txt`.
 - Deployed schema query at `0xF34B9BbA585137b05Fc00a3921297614661D836D`, including `get_performer_incoming`, separate accepted-work pagination, escrow accounting, challenge history, bounded closure recovery, closure confirmation views, and stored authenticity proof metadata.
 - Deployment receipt query — `FINALIZED` / `MAJORITY_AGREE`.
+- Independent source query — `gen_getContractCode` returned the current deployed source and matched `contracts/accordant.py` exactly, including the CRLF byte representation and the LF-normalized hash.
 - GitHub signature smoke verification — [master commit `b638ef5148d91e378113931872b95e2cd0eb6b45`](https://github.com/Bibidee/accordant/commit/b638ef5148d91e378113931872b95e2cd0eb6b45) returned `verification.verified=true`, `reason=valid`, a non-empty PGP signature, signed payload, and `verified_at` timestamp through GitHub's commit API; unsigned or incomplete proof is rejected by the contract and Direct Mode.
 - The protected master ruleset requires Web tests and production build, Direct Mode contract tests, Production dependency audit, and the Required CI gate. Protected-master workflow [37893831750](https://github.com/Bibidee/accordant/actions/runs/37893831750) passed all four jobs for merge commit `b638ef5148d91e378113931872b95e2cd0eb6b45`.
 
@@ -182,6 +203,6 @@ The canonical attempt ledger contains exactly two attempts: attempt 1 is `REVISI
 
 ## Provenance and verification notes
 
-The final deployable contract source hashes to `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88` and is deployed at `0xF34B9BbA585137b05Fc00a3921297614661D836D`. The protected-master release commit is `b638ef5148d91e378113931872b95e2cd0eb6b45`; its four-job verification is [workflow run 37893831750](https://github.com/Bibidee/accordant/actions/runs/37893831750).
+The final deployable contract source is deployed at `0xF34B9BbA585137b05Fc00a3921297614661D836D`. Its LF-normalized source hash is `C1FB993F29133272839B868B0FB3CABDE5B4E64D706FD67CA567A52EE0E7226E`; the CRLF source hash is `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88`. The protected-master contract release commit is `b638ef5148d91e378113931872b95e2cd0eb6b45`; current documentation verification is established by the protected-master workflow linked in the final report.
 
 The `Protect master` repository ruleset is active (ID `24645498`) for `refs/heads/master`, blocking deletion and non-fast-forward updates and requiring Web, Direct Mode, production audit, and Required CI gate checks. GitHub shows all current commits authored and committed by Bibidee; no Codex-authored history rewrite was necessary.
