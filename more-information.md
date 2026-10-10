@@ -210,6 +210,21 @@ ACCORDANT does not treat GitHub API existence or a content hash as authenticity.
 
 The remaining trust boundary is that GitHub is the verification oracle; the GenLayer contract does not run a local GPG public-key verifier. This is an explicit architectural limitation, not an unsigned-evidence gap. If independent local key verification is required beyond GitHub’s signed verification result, that would require a separate off-chain verifier or signed-attestation service.
 
+## GenLayer review consistency reconciliation
+
+The deployment and documentation inconsistency identified in the October 10, 2026 review has been resolved in protected `master`.
+
+- The canonical current contract is [`0xF34B9BbA585137b05Fc00a3921297614661D836D`](https://explorer-studio.genlayer.com/address/0xF34B9BbA585137b05Fc00a3921297614661D836D) on GenLayer Studionet, chain `61999`.
+- The deployment transaction is [`0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb`](https://explorer-studio.genlayer.com/tx/0x788bf4a4befc5b03c688791766e1e6c60e142839dbff8d2d7208588731c69ecb).
+- `README.md`, `HANDOFF_STATUS.md`, `.env.example`, `docs/DEPLOYMENT.md`, and this file now identify the same current address.
+- Superseded addresses `0xd9a36f60D41bb343590274b9E905A314Ac6D55A6` and `0xc9eCe9f1AF8De797d27836de4Ad8599d813aA620` are retained only under historical deployment sections.
+- The tracked GitHub source with LF line endings hashes to `C1FB993F29133272839B868B0FB3CABDE5B4E64D706FD67CA567A52EE0E7226E`.
+- The Windows CRLF representation hashes to `A722E9A2E6472D026CDE0732B7C716429CFB503957541799FA0494734CCE1D88`.
+- `node scripts/verify-deployment-source.mjs` calls `gen_getContractCode`; the decoded on-chain source was `87,680` bytes and matched the tracked source byte-for-byte. Both raw CRLF and LF-normalized comparisons passed.
+- Vercel production lists `NEXT_PUBLIC_ACCORDANT_CONTRACT` for the Production target. Because Vercel redacts the sensitive value from CLI output, the effective binding was verified through the live [`/account`](https://accordant.vercel.app/account) page: HTTP 200, current contract displayed, chain `61999` displayed, and neither superseded address present.
+- No contract redeployment, frontend rebuild, or Vercel configuration change was required for this reconciliation.
+- Final protected-master commit: [`00c73d3de7378d1d317966781b7ff735889c4d1c`](https://github.com/Bibidee/accordant/commit/00c73d3de7378d1d317966781b7ff735889c4d1c); final CI: [run `38092206560`](https://github.com/Bibidee/accordant/actions/runs/38092206560), with all four required jobs passing.
+
 ## Conclusion
 
-The requested economic consequence, evidence-integrity controls, adversarial resolution, transaction correctness, tests, deployment, documentation, production frontend, and explorer-linked two-wallet lifecycle evidence are implemented and verified in the current protected-master release.
+The requested economic consequence, evidence-integrity controls, adversarial resolution, transaction correctness, deployment evidence, documentation consistency, production frontend, and explorer-linked two-wallet lifecycle evidence are implemented and verified in the current protected-master release.
